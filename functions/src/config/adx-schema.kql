@@ -1,0 +1,823 @@
+// ADX database schema — creates all tables, mappings, and materialized views.
+// Run this KQL script against the OptimizationEngine database to bootstrap.
+// In the ADX web UI, Run executes only the current statement unless the full script is selected.
+// To apply the whole file in one request, wrap it with `.execute database script <|` and paste the file contents below it.
+
+// ============================================================================
+// Resource collection tables
+// ============================================================================
+
+.create-merge table VirtualMachines (
+    Timestamp: datetime,
+    Cloud: string,
+    TenantId: string,
+    SubscriptionId: string,
+    ResourceGroup: string,
+    Zones: dynamic,
+    Location: string,
+    VMName: string,
+    DeploymentModel: string,
+    InstanceId: string,
+    VMSize: string,
+    CoresCount: int,
+    MemoryMB: int,
+    OSType: string,
+    LicenseType: string,
+    DataDiskCount: int,
+    NicCount: int,
+    UsesManagedDisks: bool,
+    AvailabilitySetId: string,
+    BootDiagnosticsEnabled: bool,
+    BootDiagnosticsStorageAccount: string,
+    PowerState: string,
+    ImagePublisher: string,
+    ImageOffer: string,
+    ImageSku: string,
+    ImageVersion: string,
+    ImageExactVersion: string,
+    OsName: string,
+    OsVersion: string,
+    StatusDate: datetime,
+    Tags: dynamic
+    )
+
+.create-merge table ManagedDisks (
+    Timestamp: datetime,
+    Cloud: string,
+    TenantId: string,
+    SubscriptionId: string,
+    ResourceGroup: string,
+    DiskName: string,
+    InstanceId: string,
+    Location: string,
+    OwnerVMId: string,
+    DeploymentModel: string,
+    DiskType: string,
+    TimeCreated: datetime,
+    DiskIOPS: long,
+    DiskThroughput: long,
+    DiskTier: string,
+    DiskState: string,
+    EncryptionType: string,
+    Zones: dynamic,
+    Caching: string,
+    DiskSizeGB: int,
+    SKU: string,
+    StatusDate: datetime,
+    Tags: dynamic
+    )
+
+.create-merge table AppServicePlans (
+    Timestamp: datetime,
+    Cloud: string,
+    TenantId: string,
+    SubscriptionId: string,
+    ResourceGroup: string,
+    ZoneRedundant: bool,
+    Location: string,
+    AppServicePlanName: string,
+    InstanceId: string,
+    Kind: string,
+    SkuName: string,
+    SkuTier: string,
+    SkuCapacity: int,
+    SkuFamily: string,
+    SkuSize: string,
+    ComputeMode: string,
+    NumberOfWorkers: int,
+    CurrentNumberOfWorkers: int,
+    MaximumNumberOfWorkers: int,
+    NumberOfSites: int,
+    PlanName: string,
+    Tags: dynamic,
+    StatusDate: datetime
+    )
+
+.create-merge table LoadBalancers (
+    Timestamp: datetime,
+    Cloud: string,
+    TenantId: string,
+    SubscriptionId: string,
+    ResourceGroup: string,
+    InstanceName: string,
+    InstanceId: string,
+    SkuName: string,
+    SkuTier: string,
+    Location: string,
+    LbType: string,
+    LbRulesCount: int,
+    InboundNatRulesCount: int,
+    OutboundRulesCount: int,
+    FrontendIPsCount: int,
+    BackendIPCount: int,
+    BackendAddressesCount: int,
+    InboundNatPoolsCount: int,
+    BackendPoolsCount: int,
+    ProbesCount: int,
+    StatusDate: datetime,
+    Tags: dynamic
+    )
+
+.create-merge table NetworkInterfaces (
+    Timestamp: datetime,
+    Cloud: string,
+    TenantId: string,
+    SubscriptionId: string,
+    ResourceGroup: string,
+    Location: string,
+    Name: string,
+    InstanceId: string,
+    IsPrimary: bool,
+    EnableAcceleratedNetworking: bool,
+    EnableIPForwarding: bool,
+    TapConfigurationsCount: int,
+    HostedWorkloadsCount: int,
+    InternalDomainNameSuffix: string,
+    OwnerVMId: string,
+    OwnerPEId: string,
+    MacAddress: string,
+    NicType: string,
+    NicNSGId: string,
+    PrivateIPAddressVersion: string,
+    PrivateIPAllocationMethod: string,
+    IsIPConfigPrimary: bool,
+    PrivateIPAddress: string,
+    PublicIPId: string,
+    IPConfigName: string,
+    SubnetId: string,
+    Tags: dynamic,
+    StatusDate: datetime
+    )
+
+.create-merge table NetworkSecurityGroups (
+    Timestamp: datetime,
+    Cloud: string,
+    TenantId: string,
+    SubscriptionId: string,
+    ResourceGroup: string,
+    Location: string,
+    NSGName: string,
+    InstanceId: string,
+    NicCount: int,
+    SubnetCount: int,
+    RuleName: string,
+    RuleProtocol: string,
+    RuleDirection: string,
+    RulePriority: int,
+    RuleAccess: string,
+    RuleDestinationAddresses: string,
+    RuleSourceAddresses: string,
+    RuleDestinationPorts: string,
+    RuleSourcePorts: string,
+    Tags: dynamic,
+    StatusDate: datetime
+    )
+
+.create-merge table PublicIPs (
+    Timestamp: datetime,
+    Cloud: string,
+    TenantId: string,
+    SubscriptionId: string,
+    ResourceGroup: string,
+    Location: string,
+    Name: string,
+    InstanceId: string,
+    Model: string,
+    SkuName: string,
+    SkuTier: string,
+    AllocationMethod: string,
+    AddressVersion: string,
+    AssociatedResourceId: string,
+    PublicIpPrefixId: string,
+    IPAddress: string,
+    FQDN: string,
+    Zones: dynamic,
+    Tags: dynamic,
+    StatusDate: datetime
+    )
+
+.create-merge table ResourceContainers (
+    Timestamp: datetime,
+    Cloud: string,
+    TenantId: string,
+    SubscriptionId: string,
+    Location: string,
+    ContainerType: string,
+    ContainerName: string,
+    InstanceId: string,
+    ResourceCount: int,
+    ManagedBy: string,
+    ContainerProperties: dynamic,
+    Tags: dynamic,
+    StatusDate: datetime
+    )
+
+.create-merge table SqlDatabases (
+    Timestamp: datetime,
+    Cloud: string,
+    TenantId: string,
+    SubscriptionId: string,
+    ResourceGroup: string,
+    ZoneRedundant: bool,
+    Location: string,
+    DBName: string,
+    InstanceId: string,
+    SkuName: string,
+    SkuTier: string,
+    SkuCapacity: int,
+    ServiceObjectiveName: string,
+    StorageAccountType: string,
+    LicenseType: string,
+    MaxSizeBytes: long,
+    MaxLogSizeBytes: long,
+    Tags: dynamic,
+    StatusDate: datetime
+    )
+
+.create-merge table UnmanagedDisks (
+    Timestamp: datetime,
+    Cloud: string,
+    TenantId: string,
+    SubscriptionId: string,
+    ResourceGroup: string,
+    DiskName: string,
+    InstanceId: string,
+    OwnerVMId: string,
+    Location: string,
+    DeploymentModel: string,
+    DiskType: string,
+    Caching: string,
+    DiskSizeGB: int,
+    StatusDate: datetime,
+    Tags: dynamic
+    )
+
+.create-merge table VirtualMachineScaleSets (
+    Timestamp: datetime,
+    Cloud: string,
+    TenantId: string,
+    SubscriptionId: string,
+    ResourceGroup: string,
+    Zones: dynamic,
+    Location: string,
+    VMSSName: string,
+    ComputerNamePrefix: string,
+    InstanceId: string,
+    VMSSSize: string,
+    CoresCount: int,
+    MemoryMB: int,
+    OSType: string,
+    DataDiskCount: int,
+    NicCount: int,
+    Capacity: int,
+    Priority: string,
+    OSDiskSize: int,
+    OSDiskCaching: string,
+    OSDiskSKU: string,
+    SinglePlacementGroup: bool,
+    UpgradePolicy: string,
+    OverProvision: bool,
+    PlatformFaultDomainCount: int,
+    ZoneBalance: bool,
+    UsesManagedDisks: bool,
+    ImagePublisher: string,
+    ImageOffer: string,
+    ImageSku: string,
+    ImageVersion: string,
+    ImageExactVersion: string,
+    StatusDate: datetime,
+    Tags: dynamic
+    )
+
+.create-merge table VirtualNetworks (
+    Timestamp: datetime,
+    Cloud: string,
+    TenantId: string,
+    SubscriptionId: string,
+    ResourceGroup: string,
+    Location: string,
+    VNetName: string,
+    InstanceId: string,
+    Model: string,
+    VNetPrefixes: dynamic,
+    DNSServers: dynamic,
+    PeeringsCount: int,
+    EnableDdosProtection: bool,
+    SubnetName: string,
+    SubnetPrefix: string,
+    SubnetDelegationsCount: int,
+    SubnetTotalPrefixIPs: int,
+    SubnetUsedIPs: int,
+    SubnetNSGId: string,
+    Tags: dynamic,
+    StatusDate: datetime
+    )
+
+.create-merge table ApplicationGateways (
+    Timestamp: datetime,
+    Cloud: string,
+    TenantId: string,
+    SubscriptionId: string,
+    ResourceGroup: string,
+    InstanceName: string,
+    InstanceId: string,
+    SkuName: string,
+    SkuTier: string,
+    SkuCapacity: int,
+    Location: string,
+    Zones: dynamic,
+    EnableHttp2: bool,
+    GatewayIPsCount: int,
+    FrontendIPsCount: int,
+    FrontendPortsCount: int,
+    BackendIPCount: int,
+    BackendAddressesCount: int,
+    HttpSettingsCount: int,
+    HttpListenersCount: int,
+    BackendPoolsCount: int,
+    ProbesCount: int,
+    UrlPathMapsCount: int,
+    RequestRoutingRulesCount: int,
+    RewriteRulesCount: int,
+    RedirectConfsCount: int,
+    StatusDate: datetime,
+    Tags: dynamic
+    )
+
+.create-merge table AvailabilitySets (
+    Timestamp: datetime,
+    Cloud: string,
+    TenantId: string,
+    SubscriptionId: string,
+    ResourceGroup: string,
+    InstanceName: string,
+    InstanceId: string,
+    SkuName: string,
+    Location: string,
+    FaultDomains: int,
+    UpdateDomains: int,
+    VmCount: int,
+    StatusDate: datetime,
+    Tags: dynamic,
+    Zones: dynamic
+    )
+
+.create-merge table AdvisorRecommendations (
+    Timestamp: datetime,
+    Cloud: string,
+    TenantId: string,
+    SubscriptionId: string,
+    ResourceGroup: string,
+    InstanceId: string,
+    InstanceName: string,
+    Category: string,
+    Impact: string,
+    ImpactedArea: string,
+    RecommendationSubTypeId: string,
+    RecommendationDescription: string,
+    RecommendationAction: string,
+    AdditionalInfo: dynamic,
+    DetailsUrl: string,
+    StatusDate: datetime
+    )
+
+.create-merge table PriceSheetData (
+    Timestamp: datetime,
+    Cloud: string,
+    BillingAccountId: string,
+    BillingProfileId: string,
+    BillingPeriod: string,
+    MeterId: string,
+    MeterName: string,
+    MeterCategory: string,
+    MeterSubCategory: string,
+    MeterRegion: string,
+    UnitOfMeasure: string,
+    PartNumber: string,
+    UnitPrice: real,
+    CurrencyCode: string,
+    IncludedQuantity: real,
+    OfferId: string,
+    Term: string,
+    PriceType: string
+    )
+
+.create-merge table ReservationsPriceData (
+    Timestamp: datetime,
+    Cloud: string,
+    CurrencyCode: string,
+    ServiceName: string,
+    ArmSkuName: string,
+    ArmRegionName: string,
+    ReservationTerm: string,
+    MeterName: string,
+    MeterId: string,
+    SkuName: string,
+    ProductName: string,
+    UnitOfMeasure: string,
+    UnitPrice: real,
+    RetailPrice: real,
+    Type: string,
+    PriceType: string
+    )
+
+.create-merge table ReservationsUsage (
+    Timestamp: datetime,
+    Cloud: string,
+    TenantId: string,
+    Scope: string,
+    ReservationResourceId: string,
+    ReservationOrderId: string,
+    ReservationId: string,
+    DisplayName: string,
+    SkuName: string,
+    Location: string,
+    ResourceType: string,
+    AppliedScopeType: string,
+    Term: string,
+    ProvisioningState: string,
+    RenewState: string,
+    PurchaseDate: datetime,
+    ExpiryDate: datetime,
+    Archived: bool,
+    ReservedHours: real,
+    UsedHours: real,
+    UsageDate: datetime,
+    MinUtilPercentage: real,
+    AvgUtilPercentage: real,
+    MaxUtilPercentage: real,
+    PurchasedQuantity: real,
+    RemainingQuantity: real,
+    TotalReservedQuantity: real,
+    UsedQuantity: real,
+    UtilizedPercentage: real,
+    UtilTrend: string,
+    Util1Days: real,
+    Util7Days: real,
+    Util30Days: real
+    )
+
+.create-merge table SavingsPlansUsage (
+    Timestamp: datetime,
+    Cloud: string,
+    TenantId: string,
+    Scope: string,
+    SavingsPlanResourceId: string,
+    SavingsPlanOrderId: string,
+    SavingsPlanId: string,
+    DisplayName: string,
+    SkuName: string,
+    Term: string,
+    ProvisioningState: string,
+    AppliedScopeType: string,
+    RenewState: string,
+    PurchaseDate: datetime,
+    BenefitStart: datetime,
+    ExpiryDate: datetime,
+    EffectiveDate: datetime,
+    BillingScopeId: string,
+    BillingAccountId: string,
+    BillingProfileId: string,
+    BillingPlan: string,
+    CommitmentGrain: string,
+    CommitmentCurrencyCode: string,
+    CommitmentAmount: real,
+    UtilTrend: string,
+    Util1Days: real,
+    Util7Days: real,
+    Util30Days: real
+    )
+
+.create-merge table AADObjects (
+    Timestamp: datetime,
+    Cloud: string,
+    TenantId: string,
+    ObjectId: string,
+    AppId: string,
+    DisplayName: string,
+    CredentialType: string,
+    CredentialId: string,
+    StartDate: datetime,
+    EndDate: datetime,
+    StatusDate: datetime
+    )
+
+.create-merge table RBACAssignments (
+    Timestamp: datetime,
+    Cloud: string,
+    SubscriptionId: string,
+    RoleAssignmentId: string,
+    Scope: string,
+    RoleDefinitionId: string,
+    PrincipalId: string,
+    PrincipalType: string,
+    Description: string,
+    Condition: string,
+    ConditionVersion: string,
+    CreatedOn: datetime,
+    UpdatedOn: datetime,
+    StatusDate: datetime
+    )
+
+.create-merge table PolicyCompliance (
+    Timestamp: datetime,
+    Cloud: string,
+    TenantId: string,
+    SubscriptionId: string,
+    ResourceGroup: string,
+    ResourceId: string,
+    ResourceType: string,
+    ResourceLocation: string,
+    PolicyAssignmentId: string,
+    PolicyDefinitionId: string,
+    PolicySetDefinitionId: string,
+    ComplianceState: string,
+    Details: dynamic,
+    StatusDate: datetime
+    )
+
+// ============================================================================
+// Recommendation and suppression tables
+// ============================================================================
+
+.create-merge table Recommendations (
+    RecommendationId: guid,
+    GeneratedDate: datetime,
+    Cloud: string,
+    Category: string,
+    ImpactedArea: string,
+    Impact: string,
+    RecommendationType: string,
+    RecommendationSubType: string,
+    RecommendationSubTypeId: guid,
+    RecommendationDescription: string,
+    RecommendationAction: string,
+    InstanceId: string,
+    InstanceName: string,
+    AdditionalInfo: dynamic,
+    ResourceGroup: string,
+    SubscriptionId: string,
+    SubscriptionName: string,
+    TenantId: string,
+    FitScore: real,
+    Tags: dynamic,
+    DetailsUrl: string
+    )
+
+.create-merge table Suppressions (
+    FilterId: guid,
+    RecommendationSubTypeId: guid,
+    FilterType: string,
+    InstanceId: string,
+    FilterStartDate: datetime,
+    FilterEndDate: datetime,
+    Author: string,
+    Notes: string,
+    IsEnabled: bool
+    )
+
+// ============================================================================
+// Remediation log
+// ============================================================================
+
+.create-merge table RemediationLog (
+    RemediationId: guid,
+    RecommendationId: guid,
+    Cloud: string,
+    InstanceId: string,
+    Action: string,
+    Status: string,
+    ExecutedAt: datetime,
+    ExecutedBy: string,
+    ErrorMessage: string
+    )
+
+// ============================================================================
+// Metrics tables (from Azure Monitor / CloudWatch / GCP Monitoring)
+// ============================================================================
+
+.create-merge table PerformanceMetrics (
+    Timestamp: datetime,
+    Cloud: string,
+    SubscriptionId: string,
+    InstanceId: string,
+    MetricName: string,
+    AggregationType: string,
+    AggregationOfType: string,
+    Value: real,
+    Unit: string,
+    TimeGrain: string,
+    TimeSpan: string
+    )
+
+// ============================================================================
+// Cost / consumption data
+// ============================================================================
+
+.create-merge table CostData (
+    Timestamp: datetime,
+    Cloud: string,
+    SubscriptionId: string,
+    ResourceGroup: string,
+    InstanceId: string,
+    MeterCategory: string,
+    MeterSubCategory: string,
+    MeterName: string,
+    UnitOfMeasure: string,
+    Quantity: real,
+    Cost: real,
+    Currency: string,
+    BillingPeriod: string,
+    Tags: dynamic
+    )
+
+// ============================================================================
+// Ingestion control (tracks last-processed markers)
+// ============================================================================
+
+.create-merge table IngestionControl (
+    SourceId: string,
+    LastProcessedDateTime: datetime,
+    LastProcessedMarker: string,
+    TargetTableSuffix: string,
+    CollectedType: string
+    )
+
+// ============================================================================
+// JSON ingestion mappings
+// ============================================================================
+
+.create-or-alter table VirtualMachines ingestion json mapping 'VirtualMachines_mapping'
+    '[{"column":"Timestamp","path":"$.timestamp"},{"column":"Cloud","path":"$.cloud"},{"column":"TenantId","path":"$.tenantId"},{"column":"SubscriptionId","path":"$.subscriptionId"},{"column":"ResourceGroup","path":"$.resourceGroup"},{"column":"Zones","path":"$.zones"},{"column":"Location","path":"$.location"},{"column":"VMName","path":"$.vmName"},{"column":"DeploymentModel","path":"$.deploymentModel"},{"column":"InstanceId","path":"$.instanceId"},{"column":"VMSize","path":"$.vmSize"},{"column":"CoresCount","path":"$.coresCount"},{"column":"MemoryMB","path":"$.memoryMB"},{"column":"OSType","path":"$.osType"},{"column":"LicenseType","path":"$.licenseType"},{"column":"DataDiskCount","path":"$.dataDiskCount"},{"column":"NicCount","path":"$.nicCount"},{"column":"UsesManagedDisks","path":"$.usesManagedDisks"},{"column":"AvailabilitySetId","path":"$.availabilitySetId"},{"column":"BootDiagnosticsEnabled","path":"$.bootDiagnosticsEnabled"},{"column":"BootDiagnosticsStorageAccount","path":"$.bootDiagnosticsStorageAccount"},{"column":"PowerState","path":"$.powerState"},{"column":"ImagePublisher","path":"$.imagePublisher"},{"column":"ImageOffer","path":"$.imageOffer"},{"column":"ImageSku","path":"$.imageSku"},{"column":"ImageVersion","path":"$.imageVersion"},{"column":"ImageExactVersion","path":"$.imageExactVersion"},{"column":"OsName","path":"$.osName"},{"column":"OsVersion","path":"$.osVersion"},{"column":"StatusDate","path":"$.statusDate"},{"column":"Tags","path":"$.tags"}]'
+
+.create-or-alter table ManagedDisks ingestion json mapping 'ManagedDisks_mapping'
+    '[{"column":"Timestamp","path":"$.timestamp"},{"column":"Cloud","path":"$.cloud"},{"column":"TenantId","path":"$.tenantId"},{"column":"SubscriptionId","path":"$.subscriptionId"},{"column":"ResourceGroup","path":"$.resourceGroup"},{"column":"DiskName","path":"$.diskName"},{"column":"InstanceId","path":"$.instanceId"},{"column":"Location","path":"$.location"},{"column":"OwnerVMId","path":"$.ownerVMId"},{"column":"DeploymentModel","path":"$.deploymentModel"},{"column":"DiskType","path":"$.diskType"},{"column":"TimeCreated","path":"$.timeCreated"},{"column":"DiskIOPS","path":"$.diskIOPS"},{"column":"DiskThroughput","path":"$.diskThroughput"},{"column":"DiskTier","path":"$.diskTier"},{"column":"DiskState","path":"$.diskState"},{"column":"EncryptionType","path":"$.encryptionType"},{"column":"Zones","path":"$.zones"},{"column":"Caching","path":"$.caching"},{"column":"DiskSizeGB","path":"$.diskSizeGB"},{"column":"SKU","path":"$.sku"},{"column":"StatusDate","path":"$.statusDate"},{"column":"Tags","path":"$.tags"}]'
+
+.create-or-alter table AppServicePlans ingestion json mapping 'AppServicePlans_mapping'
+    '[{"column":"Timestamp","path":"$.timestamp"},{"column":"Cloud","path":"$.cloud"},{"column":"TenantId","path":"$.tenantId"},{"column":"SubscriptionId","path":"$.subscriptionId"},{"column":"ResourceGroup","path":"$.resourceGroup"},{"column":"ZoneRedundant","path":"$.zoneRedundant"},{"column":"Location","path":"$.location"},{"column":"AppServicePlanName","path":"$.appServicePlanName"},{"column":"InstanceId","path":"$.instanceId"},{"column":"Kind","path":"$.kind"},{"column":"SkuName","path":"$.skuName"},{"column":"SkuTier","path":"$.skuTier"},{"column":"SkuCapacity","path":"$.skuCapacity"},{"column":"SkuFamily","path":"$.skuFamily"},{"column":"SkuSize","path":"$.skuSize"},{"column":"ComputeMode","path":"$.computeMode"},{"column":"NumberOfWorkers","path":"$.numberOfWorkers"},{"column":"CurrentNumberOfWorkers","path":"$.currentNumberOfWorkers"},{"column":"MaximumNumberOfWorkers","path":"$.maximumNumberOfWorkers"},{"column":"NumberOfSites","path":"$.numberOfSites"},{"column":"PlanName","path":"$.planName"},{"column":"Tags","path":"$.tags"},{"column":"StatusDate","path":"$.statusDate"}]'
+
+.create-or-alter table LoadBalancers ingestion json mapping 'LoadBalancers_mapping'
+    '[{"column":"Timestamp","path":"$.timestamp"},{"column":"Cloud","path":"$.cloud"},{"column":"TenantId","path":"$.tenantId"},{"column":"SubscriptionId","path":"$.subscriptionId"},{"column":"ResourceGroup","path":"$.resourceGroup"},{"column":"InstanceName","path":"$.instanceName"},{"column":"InstanceId","path":"$.instanceId"},{"column":"SkuName","path":"$.skuName"},{"column":"SkuTier","path":"$.skuTier"},{"column":"Location","path":"$.location"},{"column":"LbType","path":"$.lbType"},{"column":"LbRulesCount","path":"$.lbRulesCount"},{"column":"InboundNatRulesCount","path":"$.inboundNatRulesCount"},{"column":"OutboundRulesCount","path":"$.outboundRulesCount"},{"column":"FrontendIPsCount","path":"$.frontendIPsCount"},{"column":"BackendIPCount","path":"$.backendIPCount"},{"column":"BackendAddressesCount","path":"$.backendAddressesCount"},{"column":"InboundNatPoolsCount","path":"$.inboundNatPoolsCount"},{"column":"BackendPoolsCount","path":"$.backendPoolsCount"},{"column":"ProbesCount","path":"$.probesCount"},{"column":"StatusDate","path":"$.statusDate"},{"column":"Tags","path":"$.tags"}]'
+
+.create-or-alter table NetworkInterfaces ingestion json mapping 'NetworkInterfaces_mapping'
+    '[{"column":"Timestamp","path":"$.timestamp"},{"column":"Cloud","path":"$.cloud"},{"column":"TenantId","path":"$.tenantId"},{"column":"SubscriptionId","path":"$.subscriptionId"},{"column":"ResourceGroup","path":"$.resourceGroup"},{"column":"Location","path":"$.location"},{"column":"Name","path":"$.name"},{"column":"InstanceId","path":"$.instanceId"},{"column":"IsPrimary","path":"$.isPrimary"},{"column":"EnableAcceleratedNetworking","path":"$.enableAcceleratedNetworking"},{"column":"EnableIPForwarding","path":"$.enableIPForwarding"},{"column":"TapConfigurationsCount","path":"$.tapConfigurationsCount"},{"column":"HostedWorkloadsCount","path":"$.hostedWorkloadsCount"},{"column":"InternalDomainNameSuffix","path":"$.internalDomainNameSuffix"},{"column":"OwnerVMId","path":"$.ownerVMId"},{"column":"OwnerPEId","path":"$.ownerPEId"},{"column":"MacAddress","path":"$.macAddress"},{"column":"NicType","path":"$.nicType"},{"column":"NicNSGId","path":"$.nicNSGId"},{"column":"PrivateIPAddressVersion","path":"$.privateIPAddressVersion"},{"column":"PrivateIPAllocationMethod","path":"$.privateIPAllocationMethod"},{"column":"IsIPConfigPrimary","path":"$.isIPConfigPrimary"},{"column":"PrivateIPAddress","path":"$.privateIPAddress"},{"column":"PublicIPId","path":"$.publicIPId"},{"column":"IPConfigName","path":"$.ipConfigName"},{"column":"SubnetId","path":"$.subnetId"},{"column":"Tags","path":"$.tags"},{"column":"StatusDate","path":"$.statusDate"}]'
+
+.create-or-alter table NetworkSecurityGroups ingestion json mapping 'NetworkSecurityGroups_mapping'
+    '[{"column":"Timestamp","path":"$.timestamp"},{"column":"Cloud","path":"$.cloud"},{"column":"TenantId","path":"$.tenantId"},{"column":"SubscriptionId","path":"$.subscriptionId"},{"column":"ResourceGroup","path":"$.resourceGroup"},{"column":"Location","path":"$.location"},{"column":"NSGName","path":"$.nsgName"},{"column":"InstanceId","path":"$.instanceId"},{"column":"NicCount","path":"$.nicCount"},{"column":"SubnetCount","path":"$.subnetCount"},{"column":"RuleName","path":"$.ruleName"},{"column":"RuleProtocol","path":"$.ruleProtocol"},{"column":"RuleDirection","path":"$.ruleDirection"},{"column":"RulePriority","path":"$.rulePriority"},{"column":"RuleAccess","path":"$.ruleAccess"},{"column":"RuleDestinationAddresses","path":"$.ruleDestinationAddresses"},{"column":"RuleSourceAddresses","path":"$.ruleSourceAddresses"},{"column":"RuleDestinationPorts","path":"$.ruleDestinationPorts"},{"column":"RuleSourcePorts","path":"$.ruleSourcePorts"},{"column":"Tags","path":"$.tags"},{"column":"StatusDate","path":"$.statusDate"}]'
+
+.create-or-alter table PublicIPs ingestion json mapping 'PublicIPs_mapping'
+    '[{"column":"Timestamp","path":"$.timestamp"},{"column":"Cloud","path":"$.cloud"},{"column":"TenantId","path":"$.tenantId"},{"column":"SubscriptionId","path":"$.subscriptionId"},{"column":"ResourceGroup","path":"$.resourceGroup"},{"column":"Location","path":"$.location"},{"column":"Name","path":"$.name"},{"column":"InstanceId","path":"$.instanceId"},{"column":"Model","path":"$.model"},{"column":"SkuName","path":"$.skuName"},{"column":"SkuTier","path":"$.skuTier"},{"column":"AllocationMethod","path":"$.allocationMethod"},{"column":"AddressVersion","path":"$.addressVersion"},{"column":"AssociatedResourceId","path":"$.associatedResourceId"},{"column":"PublicIpPrefixId","path":"$.publicIpPrefixId"},{"column":"IPAddress","path":"$.ipAddress"},{"column":"FQDN","path":"$.fqdn"},{"column":"Zones","path":"$.zones"},{"column":"Tags","path":"$.tags"},{"column":"StatusDate","path":"$.statusDate"}]'
+
+.create-or-alter table ResourceContainers ingestion json mapping 'ResourceContainers_mapping'
+    '[{"column":"Timestamp","path":"$.timestamp"},{"column":"Cloud","path":"$.cloud"},{"column":"TenantId","path":"$.tenantId"},{"column":"SubscriptionId","path":"$.subscriptionId"},{"column":"Location","path":"$.location"},{"column":"ContainerType","path":"$.containerType"},{"column":"ContainerName","path":"$.containerName"},{"column":"InstanceId","path":"$.instanceId"},{"column":"ResourceCount","path":"$.resourceCount"},{"column":"ManagedBy","path":"$.managedBy"},{"column":"ContainerProperties","path":"$.containerProperties"},{"column":"Tags","path":"$.tags"},{"column":"StatusDate","path":"$.statusDate"}]'
+
+.create-or-alter table SqlDatabases ingestion json mapping 'SqlDatabases_mapping'
+    '[{"column":"Timestamp","path":"$.timestamp"},{"column":"Cloud","path":"$.cloud"},{"column":"TenantId","path":"$.tenantId"},{"column":"SubscriptionId","path":"$.subscriptionId"},{"column":"ResourceGroup","path":"$.resourceGroup"},{"column":"ZoneRedundant","path":"$.zoneRedundant"},{"column":"Location","path":"$.location"},{"column":"DBName","path":"$.dbName"},{"column":"InstanceId","path":"$.instanceId"},{"column":"SkuName","path":"$.skuName"},{"column":"SkuTier","path":"$.skuTier"},{"column":"SkuCapacity","path":"$.skuCapacity"},{"column":"ServiceObjectiveName","path":"$.serviceObjectiveName"},{"column":"StorageAccountType","path":"$.storageAccountType"},{"column":"LicenseType","path":"$.licenseType"},{"column":"MaxSizeBytes","path":"$.maxSizeBytes"},{"column":"MaxLogSizeBytes","path":"$.maxLogSizeBytes"},{"column":"Tags","path":"$.tags"},{"column":"StatusDate","path":"$.statusDate"}]'
+
+.create-or-alter table UnmanagedDisks ingestion json mapping 'UnmanagedDisks_mapping'
+    '[{"column":"Timestamp","path":"$.timestamp"},{"column":"Cloud","path":"$.cloud"},{"column":"TenantId","path":"$.tenantId"},{"column":"SubscriptionId","path":"$.subscriptionId"},{"column":"ResourceGroup","path":"$.resourceGroup"},{"column":"DiskName","path":"$.diskName"},{"column":"InstanceId","path":"$.instanceId"},{"column":"OwnerVMId","path":"$.ownerVMId"},{"column":"Location","path":"$.location"},{"column":"DeploymentModel","path":"$.deploymentModel"},{"column":"DiskType","path":"$.diskType"},{"column":"Caching","path":"$.caching"},{"column":"DiskSizeGB","path":"$.diskSizeGB"},{"column":"StatusDate","path":"$.statusDate"},{"column":"Tags","path":"$.tags"}]'
+
+.create-or-alter table VirtualMachineScaleSets ingestion json mapping 'VirtualMachineScaleSets_mapping'
+    '[{"column":"Timestamp","path":"$.timestamp"},{"column":"Cloud","path":"$.cloud"},{"column":"TenantId","path":"$.tenantId"},{"column":"SubscriptionId","path":"$.subscriptionId"},{"column":"ResourceGroup","path":"$.resourceGroup"},{"column":"Zones","path":"$.zones"},{"column":"Location","path":"$.location"},{"column":"VMSSName","path":"$.vmssName"},{"column":"ComputerNamePrefix","path":"$.computerNamePrefix"},{"column":"InstanceId","path":"$.instanceId"},{"column":"VMSSSize","path":"$.vmssSize"},{"column":"CoresCount","path":"$.coresCount"},{"column":"MemoryMB","path":"$.memoryMB"},{"column":"OSType","path":"$.osType"},{"column":"DataDiskCount","path":"$.dataDiskCount"},{"column":"NicCount","path":"$.nicCount"},{"column":"Capacity","path":"$.capacity"},{"column":"Priority","path":"$.priority"},{"column":"OSDiskSize","path":"$.osDiskSize"},{"column":"OSDiskCaching","path":"$.osDiskCaching"},{"column":"OSDiskSKU","path":"$.osDiskSKU"},{"column":"SinglePlacementGroup","path":"$.singlePlacementGroup"},{"column":"UpgradePolicy","path":"$.upgradePolicy"},{"column":"OverProvision","path":"$.overProvision"},{"column":"PlatformFaultDomainCount","path":"$.platformFaultDomainCount"},{"column":"ZoneBalance","path":"$.zoneBalance"},{"column":"UsesManagedDisks","path":"$.usesManagedDisks"},{"column":"ImagePublisher","path":"$.imagePublisher"},{"column":"ImageOffer","path":"$.imageOffer"},{"column":"ImageSku","path":"$.imageSku"},{"column":"ImageVersion","path":"$.imageVersion"},{"column":"ImageExactVersion","path":"$.imageExactVersion"},{"column":"StatusDate","path":"$.statusDate"},{"column":"Tags","path":"$.tags"}]'
+
+.create-or-alter table VirtualNetworks ingestion json mapping 'VirtualNetworks_mapping'
+    '[{"column":"Timestamp","path":"$.timestamp"},{"column":"Cloud","path":"$.cloud"},{"column":"TenantId","path":"$.tenantId"},{"column":"SubscriptionId","path":"$.subscriptionId"},{"column":"ResourceGroup","path":"$.resourceGroup"},{"column":"Location","path":"$.location"},{"column":"VNetName","path":"$.vnetName"},{"column":"InstanceId","path":"$.instanceId"},{"column":"Model","path":"$.model"},{"column":"VNetPrefixes","path":"$.vnetPrefixes"},{"column":"DNSServers","path":"$.dnsServers"},{"column":"PeeringsCount","path":"$.peeringsCount"},{"column":"EnableDdosProtection","path":"$.enableDdosProtection"},{"column":"SubnetName","path":"$.subnetName"},{"column":"SubnetPrefix","path":"$.subnetPrefix"},{"column":"SubnetDelegationsCount","path":"$.subnetDelegationsCount"},{"column":"SubnetTotalPrefixIPs","path":"$.subnetTotalPrefixIPs"},{"column":"SubnetUsedIPs","path":"$.subnetUsedIPs"},{"column":"SubnetNSGId","path":"$.subnetNSGId"},{"column":"Tags","path":"$.tags"},{"column":"StatusDate","path":"$.statusDate"}]'
+
+.create-or-alter table ApplicationGateways ingestion json mapping 'ApplicationGateways_mapping'
+    '[{"column":"Timestamp","path":"$.timestamp"},{"column":"Cloud","path":"$.cloud"},{"column":"TenantId","path":"$.tenantId"},{"column":"SubscriptionId","path":"$.subscriptionId"},{"column":"ResourceGroup","path":"$.resourceGroup"},{"column":"InstanceName","path":"$.instanceName"},{"column":"InstanceId","path":"$.instanceId"},{"column":"SkuName","path":"$.skuName"},{"column":"SkuTier","path":"$.skuTier"},{"column":"SkuCapacity","path":"$.skuCapacity"},{"column":"Location","path":"$.location"},{"column":"Zones","path":"$.zones"},{"column":"EnableHttp2","path":"$.enableHttp2"},{"column":"GatewayIPsCount","path":"$.gatewayIPsCount"},{"column":"FrontendIPsCount","path":"$.frontendIPsCount"},{"column":"FrontendPortsCount","path":"$.frontendPortsCount"},{"column":"BackendIPCount","path":"$.backendIPCount"},{"column":"BackendAddressesCount","path":"$.backendAddressesCount"},{"column":"HttpSettingsCount","path":"$.httpSettingsCount"},{"column":"HttpListenersCount","path":"$.httpListenersCount"},{"column":"BackendPoolsCount","path":"$.backendPoolsCount"},{"column":"ProbesCount","path":"$.probesCount"},{"column":"UrlPathMapsCount","path":"$.urlPathMapsCount"},{"column":"RequestRoutingRulesCount","path":"$.requestRoutingRulesCount"},{"column":"RewriteRulesCount","path":"$.rewriteRulesCount"},{"column":"RedirectConfsCount","path":"$.redirectConfsCount"},{"column":"StatusDate","path":"$.statusDate"},{"column":"Tags","path":"$.tags"}]'
+
+.create-or-alter table AvailabilitySets ingestion json mapping 'AvailabilitySets_mapping'
+    '[{"column":"Timestamp","path":"$.timestamp"},{"column":"Cloud","path":"$.cloud"},{"column":"TenantId","path":"$.tenantId"},{"column":"SubscriptionId","path":"$.subscriptionId"},{"column":"ResourceGroup","path":"$.resourceGroup"},{"column":"InstanceName","path":"$.instanceName"},{"column":"InstanceId","path":"$.instanceId"},{"column":"SkuName","path":"$.skuName"},{"column":"Location","path":"$.location"},{"column":"FaultDomains","path":"$.faultDomains"},{"column":"UpdateDomains","path":"$.updateDomains"},{"column":"VmCount","path":"$.vmCount"},{"column":"StatusDate","path":"$.statusDate"},{"column":"Tags","path":"$.tags"},{"column":"Zones","path":"$.zones"}]'
+
+.create-or-alter table AdvisorRecommendations ingestion json mapping 'AdvisorRecommendations_mapping'
+    '[{"column":"Timestamp","path":"$.timestamp"},{"column":"Cloud","path":"$.cloud"},{"column":"TenantId","path":"$.tenantId"},{"column":"SubscriptionId","path":"$.subscriptionId"},{"column":"ResourceGroup","path":"$.resourceGroup"},{"column":"InstanceId","path":"$.instanceId"},{"column":"InstanceName","path":"$.instanceName"},{"column":"Category","path":"$.category"},{"column":"Impact","path":"$.impact"},{"column":"ImpactedArea","path":"$.impactedArea"},{"column":"RecommendationSubTypeId","path":"$.recommendationSubTypeId"},{"column":"RecommendationDescription","path":"$.recommendationDescription"},{"column":"RecommendationAction","path":"$.recommendationAction"},{"column":"AdditionalInfo","path":"$.additionalInfo"},{"column":"DetailsUrl","path":"$.detailsUrl"},{"column":"StatusDate","path":"$.statusDate"}]'
+
+.create-or-alter table PriceSheetData ingestion json mapping 'PriceSheetData_mapping'
+    '[{"column":"Timestamp","path":"$.timestamp"},{"column":"Cloud","path":"$.cloud"},{"column":"BillingAccountId","path":"$.billingAccountId"},{"column":"BillingProfileId","path":"$.billingProfileId"},{"column":"BillingPeriod","path":"$.billingPeriod"},{"column":"MeterId","path":"$.meterId"},{"column":"MeterName","path":"$.meterName"},{"column":"MeterCategory","path":"$.meterCategory"},{"column":"MeterSubCategory","path":"$.meterSubCategory"},{"column":"MeterRegion","path":"$.meterRegion"},{"column":"UnitOfMeasure","path":"$.unitOfMeasure"},{"column":"PartNumber","path":"$.partNumber"},{"column":"UnitPrice","path":"$.unitPrice"},{"column":"CurrencyCode","path":"$.currencyCode"},{"column":"IncludedQuantity","path":"$.includedQuantity"},{"column":"OfferId","path":"$.offerId"},{"column":"Term","path":"$.term"},{"column":"PriceType","path":"$.priceType"}]'
+
+.create-or-alter table ReservationsPriceData ingestion json mapping 'ReservationsPriceData_mapping'
+    '[{"column":"Timestamp","path":"$.timestamp"},{"column":"Cloud","path":"$.cloud"},{"column":"CurrencyCode","path":"$.currencyCode"},{"column":"ServiceName","path":"$.serviceName"},{"column":"ArmSkuName","path":"$.armSkuName"},{"column":"ArmRegionName","path":"$.armRegionName"},{"column":"ReservationTerm","path":"$.reservationTerm"},{"column":"MeterName","path":"$.meterName"},{"column":"MeterId","path":"$.meterId"},{"column":"SkuName","path":"$.skuName"},{"column":"ProductName","path":"$.productName"},{"column":"UnitOfMeasure","path":"$.unitOfMeasure"},{"column":"UnitPrice","path":"$.unitPrice"},{"column":"RetailPrice","path":"$.retailPrice"},{"column":"Type","path":"$.type"},{"column":"PriceType","path":"$.priceType"}]'
+
+.create-or-alter table ReservationsUsage ingestion json mapping 'ReservationsUsage_mapping'
+    '[{"column":"Timestamp","path":"$.timestamp"},{"column":"Cloud","path":"$.cloud"},{"column":"TenantId","path":"$.tenantId"},{"column":"Scope","path":"$.scope"},{"column":"ReservationResourceId","path":"$.reservationResourceId"},{"column":"ReservationOrderId","path":"$.reservationOrderId"},{"column":"ReservationId","path":"$.reservationId"},{"column":"DisplayName","path":"$.displayName"},{"column":"SkuName","path":"$.skuName"},{"column":"Location","path":"$.location"},{"column":"ResourceType","path":"$.resourceType"},{"column":"AppliedScopeType","path":"$.appliedScopeType"},{"column":"Term","path":"$.term"},{"column":"ProvisioningState","path":"$.provisioningState"},{"column":"RenewState","path":"$.renewState"},{"column":"PurchaseDate","path":"$.purchaseDate"},{"column":"ExpiryDate","path":"$.expiryDate"},{"column":"Archived","path":"$.archived"},{"column":"ReservedHours","path":"$.reservedHours"},{"column":"UsedHours","path":"$.usedHours"},{"column":"UsageDate","path":"$.usageDate"},{"column":"MinUtilPercentage","path":"$.minUtilPercentage"},{"column":"AvgUtilPercentage","path":"$.avgUtilPercentage"},{"column":"MaxUtilPercentage","path":"$.maxUtilPercentage"},{"column":"PurchasedQuantity","path":"$.purchasedQuantity"},{"column":"RemainingQuantity","path":"$.remainingQuantity"},{"column":"TotalReservedQuantity","path":"$.totalReservedQuantity"},{"column":"UsedQuantity","path":"$.usedQuantity"},{"column":"UtilizedPercentage","path":"$.utilizedPercentage"},{"column":"UtilTrend","path":"$.utilTrend"},{"column":"Util1Days","path":"$.util1Days"},{"column":"Util7Days","path":"$.util7Days"},{"column":"Util30Days","path":"$.util30Days"}]'
+
+.create-or-alter table SavingsPlansUsage ingestion json mapping 'SavingsPlansUsage_mapping'
+    '[{"column":"Timestamp","path":"$.timestamp"},{"column":"Cloud","path":"$.cloud"},{"column":"TenantId","path":"$.tenantId"},{"column":"Scope","path":"$.scope"},{"column":"SavingsPlanResourceId","path":"$.savingsPlanResourceId"},{"column":"SavingsPlanOrderId","path":"$.savingsPlanOrderId"},{"column":"SavingsPlanId","path":"$.savingsPlanId"},{"column":"DisplayName","path":"$.displayName"},{"column":"SkuName","path":"$.skuName"},{"column":"Term","path":"$.term"},{"column":"ProvisioningState","path":"$.provisioningState"},{"column":"AppliedScopeType","path":"$.appliedScopeType"},{"column":"RenewState","path":"$.renewState"},{"column":"PurchaseDate","path":"$.purchaseDate"},{"column":"BenefitStart","path":"$.benefitStart"},{"column":"ExpiryDate","path":"$.expiryDate"},{"column":"EffectiveDate","path":"$.effectiveDate"},{"column":"BillingScopeId","path":"$.billingScopeId"},{"column":"BillingAccountId","path":"$.billingAccountId"},{"column":"BillingProfileId","path":"$.billingProfileId"},{"column":"BillingPlan","path":"$.billingPlan"},{"column":"CommitmentGrain","path":"$.commitmentGrain"},{"column":"CommitmentCurrencyCode","path":"$.commitmentCurrencyCode"},{"column":"CommitmentAmount","path":"$.commitmentAmount"},{"column":"UtilTrend","path":"$.utilTrend"},{"column":"Util1Days","path":"$.util1Days"},{"column":"Util7Days","path":"$.util7Days"},{"column":"Util30Days","path":"$.util30Days"}]'
+
+.create-or-alter table AADObjects ingestion json mapping 'AADObjects_mapping'
+    '[{"column":"Timestamp","path":"$.timestamp"},{"column":"Cloud","path":"$.cloud"},{"column":"TenantId","path":"$.tenantId"},{"column":"ObjectId","path":"$.objectId"},{"column":"AppId","path":"$.appId"},{"column":"DisplayName","path":"$.displayName"},{"column":"CredentialType","path":"$.credentialType"},{"column":"CredentialId","path":"$.credentialId"},{"column":"StartDate","path":"$.startDate"},{"column":"EndDate","path":"$.endDate"},{"column":"StatusDate","path":"$.statusDate"}]'
+
+.create-or-alter table RBACAssignments ingestion json mapping 'RBACAssignments_mapping'
+    '[{"column":"Timestamp","path":"$.timestamp"},{"column":"Cloud","path":"$.cloud"},{"column":"SubscriptionId","path":"$.subscriptionId"},{"column":"RoleAssignmentId","path":"$.roleAssignmentId"},{"column":"Scope","path":"$.scope"},{"column":"RoleDefinitionId","path":"$.roleDefinitionId"},{"column":"PrincipalId","path":"$.principalId"},{"column":"PrincipalType","path":"$.principalType"},{"column":"Description","path":"$.description"},{"column":"Condition","path":"$.condition"},{"column":"ConditionVersion","path":"$.conditionVersion"},{"column":"CreatedOn","path":"$.createdOn"},{"column":"UpdatedOn","path":"$.updatedOn"},{"column":"StatusDate","path":"$.statusDate"}]'
+
+.create-or-alter table PolicyCompliance ingestion json mapping 'PolicyCompliance_mapping'
+    '[{"column":"Timestamp","path":"$.timestamp"},{"column":"Cloud","path":"$.cloud"},{"column":"TenantId","path":"$.tenantId"},{"column":"SubscriptionId","path":"$.subscriptionId"},{"column":"ResourceGroup","path":"$.resourceGroup"},{"column":"ResourceId","path":"$.resourceId"},{"column":"ResourceType","path":"$.resourceType"},{"column":"ResourceLocation","path":"$.resourceLocation"},{"column":"PolicyAssignmentId","path":"$.policyAssignmentId"},{"column":"PolicyDefinitionId","path":"$.policyDefinitionId"},{"column":"PolicySetDefinitionId","path":"$.policySetDefinitionId"},{"column":"ComplianceState","path":"$.complianceState"},{"column":"Details","path":"$.details"},{"column":"StatusDate","path":"$.statusDate"}]'
+
+.create-or-alter table Recommendations ingestion json mapping 'Recommendations_mapping'
+    '[{"column":"RecommendationId","path":"$.recommendationId"},{"column":"GeneratedDate","path":"$.generatedDate"},{"column":"Cloud","path":"$.cloud"},{"column":"Category","path":"$.category"},{"column":"ImpactedArea","path":"$.impactedArea"},{"column":"Impact","path":"$.impact"},{"column":"RecommendationType","path":"$.recommendationType"},{"column":"RecommendationSubType","path":"$.recommendationSubType"},{"column":"RecommendationSubTypeId","path":"$.recommendationSubTypeId"},{"column":"RecommendationDescription","path":"$.recommendationDescription"},{"column":"RecommendationAction","path":"$.recommendationAction"},{"column":"InstanceId","path":"$.instanceId"},{"column":"InstanceName","path":"$.instanceName"},{"column":"AdditionalInfo","path":"$.additionalInfo"},{"column":"ResourceGroup","path":"$.resourceGroup"},{"column":"SubscriptionId","path":"$.subscriptionId"},{"column":"SubscriptionName","path":"$.subscriptionName"},{"column":"TenantId","path":"$.tenantId"},{"column":"FitScore","path":"$.fitScore"},{"column":"Tags","path":"$.tags"},{"column":"DetailsUrl","path":"$.detailsUrl"}]'
+
+.create-or-alter table Suppressions ingestion json mapping 'Suppressions_mapping'
+    '[{"column":"FilterId","path":"$.filterId"},{"column":"RecommendationSubTypeId","path":"$.recommendationSubTypeId"},{"column":"FilterType","path":"$.filterType"},{"column":"InstanceId","path":"$.instanceId"},{"column":"FilterStartDate","path":"$.filterStartDate"},{"column":"FilterEndDate","path":"$.filterEndDate"},{"column":"Author","path":"$.author"},{"column":"Notes","path":"$.notes"},{"column":"IsEnabled","path":"$.isEnabled"}]'
+
+.create-or-alter table CostData ingestion json mapping 'CostData_mapping'
+    '[{"column":"Timestamp","path":"$.timestamp"},{"column":"Cloud","path":"$.cloud"},{"column":"SubscriptionId","path":"$.subscriptionId"},{"column":"ResourceGroup","path":"$.resourceGroup"},{"column":"InstanceId","path":"$.instanceId"},{"column":"MeterCategory","path":"$.meterCategory"},{"column":"MeterSubCategory","path":"$.meterSubCategory"},{"column":"MeterName","path":"$.meterName"},{"column":"UnitOfMeasure","path":"$.unitOfMeasure"},{"column":"Quantity","path":"$.quantity"},{"column":"Cost","path":"$.cost"},{"column":"Currency","path":"$.currency"},{"column":"BillingPeriod","path":"$.billingPeriod"},{"column":"Tags","path":"$.tags"}]'
+
+.create-or-alter table PerformanceMetrics ingestion json mapping 'PerformanceMetrics_mapping'
+    '[{"column":"Timestamp","path":"$.timestamp"},{"column":"Cloud","path":"$.cloud"},{"column":"SubscriptionId","path":"$.subscriptionId"},{"column":"InstanceId","path":"$.instanceId"},{"column":"MetricName","path":"$.metricName"},{"column":"AggregationType","path":"$.aggregationType"},{"column":"AggregationOfType","path":"$.aggregationOfType"},{"column":"Value","path":"$.value"},{"column":"Unit","path":"$.unit"},{"column":"TimeGrain","path":"$.timeGrain"},{"column":"TimeSpan","path":"$.timeSpan"}]'
+
+.create-or-alter table IngestionControl ingestion json mapping 'IngestionControl_mapping'
+    '[{"column":"SourceId","path":"$.SourceId"},{"column":"LastProcessedDateTime","path":"$.LastProcessedDateTime"},{"column":"LastProcessedMarker","path":"$.LastProcessedMarker"},{"column":"TargetTableSuffix","path":"$.TargetTableSuffix"},{"column":"CollectedType","path":"$.CollectedType"}]'
+
+// ============================================================================
+// Retention policies (keep 2 years of data)
+// ============================================================================
+
+.alter table VirtualMachines policy retention
+```
+{"SoftDeletePeriod":"730.00:00:00","Recoverability":"Enabled"}
+```
+.alter table ManagedDisks policy retention
+```
+{"SoftDeletePeriod":"730.00:00:00","Recoverability":"Enabled"}
+```
+.alter table UnmanagedDisks policy retention
+```
+{"SoftDeletePeriod":"730.00:00:00","Recoverability":"Enabled"}
+```
+.alter table AdvisorRecommendations policy retention
+```
+{"SoftDeletePeriod":"730.00:00:00","Recoverability":"Enabled"}
+```
+.alter table AADObjects policy retention
+```
+{"SoftDeletePeriod":"730.00:00:00","Recoverability":"Enabled"}
+```
+.alter table RBACAssignments policy retention
+```
+{"SoftDeletePeriod":"730.00:00:00","Recoverability":"Enabled"}
+```
+.alter table PolicyCompliance policy retention
+```
+{"SoftDeletePeriod":"730.00:00:00","Recoverability":"Enabled"}
+```
+.alter table Recommendations policy retention
+```
+{"SoftDeletePeriod":"730.00:00:00","Recoverability":"Enabled"}
+```
+.alter table CostData policy retention
+```
+{"SoftDeletePeriod":"730.00:00:00","Recoverability":"Enabled"}
+```
+.alter table PriceSheetData policy retention
+```
+{"SoftDeletePeriod":"730.00:00:00","Recoverability":"Enabled"}
+```
+
+.alter table ReservationsPriceData policy retention
+```
+{"SoftDeletePeriod":"730.00:00:00","Recoverability":"Enabled"}
+```
+
+.alter table ReservationsUsage policy retention
+```
+{"SoftDeletePeriod":"730.00:00:00","Recoverability":"Enabled"}
+```
+
+.alter table SavingsPlansUsage policy retention
+```
+{"SoftDeletePeriod":"730.00:00:00","Recoverability":"Enabled"}
+```
+.alter table PerformanceMetrics policy retention
+```
+{"SoftDeletePeriod":"365.00:00:00","Recoverability":"Enabled"}
+```
+.alter table RemediationLog policy retention
+```
+{"SoftDeletePeriod":"730.00:00:00","Recoverability":"Enabled"}
+```
+
+// ============================================================================
+// Materialized views for latest snapshot queries
+// ============================================================================
+
+.create-or-alter materialized-view LatestVMs on table VirtualMachines {
+    VirtualMachines
+    | summarize arg_max(Timestamp, *) by InstanceId
+    }
+
+.create-or-alter materialized-view LatestDisks on table ManagedDisks {
+    ManagedDisks
+    | summarize arg_max(Timestamp, *) by InstanceId
+    }
+
+.create-or-alter materialized-view LatestRecommendations on table Recommendations {
+    Recommendations
+    | summarize arg_max(GeneratedDate, *) by RecommendationId
+    }
+
+.create-or-alter materialized-view ActiveSuppressions on table Suppressions {
+    Suppressions
+    | where IsEnabled == true
+    | where FilterEndDate == datetime(null) or FilterEndDate > now()
+    | summarize arg_max(FilterStartDate, *) by FilterId
+    }

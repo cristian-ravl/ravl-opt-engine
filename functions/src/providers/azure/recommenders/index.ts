@@ -1,0 +1,19 @@
+// Barrel export for all Azure recommenders
+export { LongDeallocatedVmsRecommender } from './long-deallocated-vms.js';
+export { StoppedVmsRecommender } from './stopped-vms.js';
+export { UnattachedDisksRecommender } from './unattached-disks.js';
+export { UnusedAppGatewaysRecommender } from './unused-appgateways.js';
+export { UnusedLoadBalancersRecommender } from './unused-loadbalancers.js';
+export { VmHighAvailabilityRecommender } from './vm-high-availability.js';
+export { VnetOptimizationsRecommender } from './vnet-optimizations.js';
+export { AppServiceOptimizationsRecommender } from './appservice-optimizations.js';
+export { AdvisorAsIsRecommender } from './advisor-asis.js';
+export { AdvisorCostAugmentedRecommender } from './advisor-cost-augmented.js';
+export { VmOptimizationsRecommender } from './advisor-resource-optimizations.js';
+export { VmssOptimizationsRecommender } from './vmss-optimizations.js';
+export { DiskOptimizationsRecommender } from './disk-optimizations.js';
+export { SqlDbOptimizationsRecommender } from './sqldb-optimizations.js';
+export { StorageAccountOptimizationsRecommender } from './storage-account-optimizations.js';
+export { ArmOptimizationsRecommender } from './arm-optimizations.js';
+export { AadExpiringCredentialsRecommender } from './aad-expiring-credentials.js';
+export { AzureRecommender } from './base-recommender.js';

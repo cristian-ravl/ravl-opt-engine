@@ -1,0 +1,26 @@
+// Barrel export for all Azure ARG collectors
+export { VirtualMachinesCollector } from './vm-collector.js';
+export { ManagedDisksCollector } from './disk-collector.js';
+export { AppServicePlanCollector } from './appserviceplan-collector.js';
+export { LoadBalancerCollector } from './lb-collector.js';
+export { NicCollector } from './nic-collector.js';
+export { NsgCollector } from './nsg-collector.js';
+export { PublicIpCollector } from './publicip-collector.js';
+export { ResourceContainerCollector } from './rescontainer-collector.js';
+export { SqlDatabaseCollector } from './sqldb-collector.js';
+export { VmssCollector } from './vmss-collector.js';
+export { VnetCollector } from './vnet-collector.js';
+export { AppGatewayCollector } from './appgw-collector.js';
+export { AvailabilitySetCollector } from './availset-collector.js';
+export { UnmanagedDisksCollector } from './unmanaged-disk-collector.js';
+export { ConsumptionCostCollector } from './consumption-collector.js';
+export { MonitorMetricsCollector } from './metrics-collector.js';
+export { AdvisorRecommendationsCollector } from './advisor-collector.js';
+export { PriceSheetCollector } from './pricesheet-collector.js';
+export { ReservationsPriceCollector } from './reservations-price-collector.js';
+export { ReservationsUsageCollector } from './reservations-usage-collector.js';
+export { SavingsPlansUsageCollector } from './savings-plans-usage-collector.js';
+export { AadObjectsCollector } from './aad-collector.js';
+export { RbacAssignmentsCollector } from './rbac-collector.js';
+export { PolicyComplianceCollector } from './policy-collector.js';
+export { AzureArgCollector } from './base-arg-collector.js';

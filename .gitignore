@@ -1,0 +1,8 @@
+**/node_modules/
+functions/dist/
+web/dist/
+functions/coverage/
+.env*
+local.settings.json
+.DS_Store
+.vscode/

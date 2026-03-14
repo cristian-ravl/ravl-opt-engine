@@ -1,0 +1,23 @@
+# Editor and source control
+.vscode/
+.idea/
+.git/
+.gitignore
+.gitattributes
+
+# Local-only settings and secrets
+local.settings.json
+.env
+.env.*
+
+# Build/test artifacts not needed in deployment package
+coverage/
+tests/
+*.log
+
+# OS / tooling noise
+.DS_Store
+
+# Dependencies are restored during remote build
+# (keeps deployment package small and avoids long uploads)
+# node_modules/

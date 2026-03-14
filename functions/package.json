@@ -1,0 +1,40 @@
+{
+  "name": "@finops-toolkit/optimization-engine",
+  "version": "14.0.0",
+  "description": "Multi-cloud optimization engine for the FinOps toolkit — collects resource data, generates cost and performance recommendations, and provides a REST API for dashboards.",
+  "type": "module",
+  "main": "dist/src/index.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "clean": "node -e \"fs.rmSync('dist',{recursive:true,force:true})\"",
+    "prestart": "npm run clean && npm run build",
+    "start": "func start",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "test": "vitest run --coverage",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@azure/arm-resourcegraph": "^4.2.1",
+    "@azure/functions": "^4.11.2",
+    "@azure/identity": "^4.13.0",
+    "@azure/storage-blob": "^12.31.0",
+    "azure-kusto-data": "^7.0.4",
+    "azure-kusto-ingest": "^7.0.4",
+    "durable-functions": "^3.3.0",
+    "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.19.15",
+    "@vitest/coverage-v8": "^4.1.0",
+    "eslint": "^10.0.3",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.57.0",
+    "vitest": "^4.1.0"
+  },
+  "engines": {
+    "node": "^22.13.0"
+  }
+}
