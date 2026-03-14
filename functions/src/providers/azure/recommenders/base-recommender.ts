@@ -63,6 +63,8 @@ export abstract class AzureRecommender implements IRecommender {
     return {
       recommendationId: uuidv4(),
       generatedDate: new Date().toISOString(),
+      recommenderId: this.id,
+      recommenderName: this.name,
       cloud: 'Azure',
       category: subType.category,
       impactedArea: subType.impactedArea,
@@ -89,6 +91,14 @@ export abstract class AzureRecommender implements IRecommender {
     const subscriptionNames = await this.loadSubscriptionNames(ctx);
 
     for (const recommendation of recommendations) {
+      if (!recommendation.recommenderId) {
+        recommendation.recommenderId = this.id;
+      }
+
+      if (!recommendation.recommenderName) {
+        recommendation.recommenderName = this.name;
+      }
+
       if (!recommendation.subscriptionName && recommendation.subscriptionId) {
         recommendation.subscriptionName = subscriptionNames.get(recommendation.subscriptionId.toLowerCase()) ?? '';
       }
@@ -118,7 +128,10 @@ export abstract class AzureRecommender implements IRecommender {
   }
 
   private buildPortalResourceUrl(tenantId: string, instanceId: string): string {
-    return `https://portal.azure.com/#@${tenantId}/resource${instanceId}/overview`;
+    const normalizedTenantId = tenantId.trim();
+    return normalizedTenantId
+      ? `https://portal.azure.com/#@${normalizedTenantId}/resource${instanceId}/overview`
+      : `https://portal.azure.com/#resource${instanceId}/overview`;
   }
 }
 

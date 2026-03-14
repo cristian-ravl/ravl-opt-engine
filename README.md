@@ -222,6 +222,8 @@ Set these app settings when you want to ingest reservations prices, reservations
 | POST   | `/api/orchestrators/collection`     | Start collection run                |
 | POST   | `/api/orchestrators/recommendation` | Start recommendation run            |
 
+`GET /api/recommendations` supports filtering by `cloud`, `category`, `impact`, `subType`, `recommenderId`, `subscriptionId`, `resourceGroup`, `limit`, `offset`, and `includeSuppressed`.
+
 ## Deployment
 
 ### Deployment tiers

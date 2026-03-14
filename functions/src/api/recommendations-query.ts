@@ -1,3 +1,5 @@
+import { buildRecommenderCompatibilityKql } from '../utils/recommender-metadata.js';
+
 const LATEST_RECOMMENDATION_RUN_GAP = '30m';
 
 interface RecommendationQueryFilters {
@@ -5,6 +7,7 @@ interface RecommendationQueryFilters {
   category?: string | null;
   impact?: string | null;
   subType?: string | null;
+  recommenderId?: string | null;
   subscriptionId?: string | null;
   resourceGroup?: string | null;
 }
@@ -51,6 +54,7 @@ function buildRecommendationFiltersKql(filters: RecommendationQueryFilters): str
   if (filters.category) clauses.push(`Category == "${escapeKql(filters.category)}"`);
   if (filters.impact) clauses.push(`Impact == "${escapeKql(filters.impact)}"`);
   if (filters.subType) clauses.push(`RecommendationSubType == "${escapeKql(filters.subType)}"`);
+  if (filters.recommenderId) clauses.push(`RecommenderId == "${escapeKql(filters.recommenderId)}"`);
   if (filters.subscriptionId) clauses.push(`SubscriptionId == "${escapeKql(filters.subscriptionId)}"`);
   if (filters.resourceGroup) clauses.push(`ResourceGroup =~ "${escapeKql(filters.resourceGroup)}"`);
 
@@ -79,11 +83,16 @@ function buildRecommendationSuppressionJoinKql(includeSuppressed: boolean): stri
 export function buildRecommendationsListKql(options: RecommendationListQueryOptions): string {
   return `
     ${buildLatestRecommendationsBaseKql()}
+    ${buildRecommenderCompatibilityKql()}
     ${buildRecommendationFiltersKql(options.filters)}
     ${buildRecommendationSuppressionJoinKql(options.includeSuppressed)}
-    | order by FitScore desc, Impact asc
+    | extend
+        ImpactSort = case(Impact == "High", 0, Impact == "Medium", 1, 2),
+        MonthlySavings = todouble(coalesce(AdditionalInfo.savingsAmount, 0))
+    | order by ImpactSort asc, FitScore desc, MonthlySavings desc, GeneratedDate desc
     | serialize RowNum = row_number()
     | where RowNum > ${options.offset}
+    | project-away ImpactSort, MonthlySavings
     | take ${options.limit}
   `;
 }
@@ -91,6 +100,7 @@ export function buildRecommendationsListKql(options: RecommendationListQueryOpti
 export function buildRecommendationsCountKql(options: RecommendationCountQueryOptions): string {
   return `
     ${buildLatestRecommendationsBaseKql()}
+    ${buildRecommenderCompatibilityKql()}
     ${buildRecommendationFiltersKql(options.filters)}
     ${buildRecommendationSuppressionJoinKql(options.includeSuppressed)}
     | count
@@ -100,8 +110,9 @@ export function buildRecommendationsCountKql(options: RecommendationCountQueryOp
 export function buildRecommendationsSummaryKql(): string {
   return `
     ${buildLatestRecommendationsBaseKql()}
+    ${buildRecommenderCompatibilityKql()}
     ${buildRecommendationSuppressionJoinKql(false)}
-    | summarize Count = count() by Category, Impact, Cloud, RecommendationSubType
+    | summarize Count = count() by Category, Impact, Cloud, RecommendationSubType, RecommenderId, RecommenderName
     | order by Count desc
   `;
 }
@@ -109,6 +120,7 @@ export function buildRecommendationsSummaryKql(): string {
 export function buildCostSummaryKql(): string {
   return `
     ${buildLatestRecommendationsBaseKql()}
+    ${buildRecommenderCompatibilityKql()}
     ${buildRecommendationSuppressionJoinKql(false)}
     | extend MonthlySavings = todouble(coalesce(AdditionalInfo.savingsAmount, 0))
     | extend AnnualSavings = todouble(coalesce(AdditionalInfo.annualSavingsAmount, 0))

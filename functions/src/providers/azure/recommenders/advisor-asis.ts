@@ -51,6 +51,8 @@ export class AdvisorAsIsRecommender extends AzureRecommender {
     const recommendations: Recommendation[] = rows.map((row) => ({
       recommendationId: uuidv4(),
       generatedDate: new Date().toISOString(),
+      recommenderId: this.id,
+      recommenderName: this.name,
       cloud: 'Azure',
       category: normalizeRecommendationCategory(row.Category, 'OperationalExcellence'),
       impactedArea: row.ImpactedArea || 'Microsoft.Advisor/recommendations',

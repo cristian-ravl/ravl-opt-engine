@@ -3,11 +3,14 @@ import { buildContext } from '../config/index.js';
 import { AzureProvider } from '../providers/azure/index.js';
 import type { Recommendation } from '../providers/types.js';
 import { query } from '../utils/adx-client.js';
+import { buildRecommenderCompatibilityKql, deriveRecommenderMetadata } from '../utils/recommender-metadata.js';
 import { escapeKql } from './recommendations-query.js';
 
 type RecommendationRow = {
   RecommendationId: string;
   GeneratedDate: string;
+  RecommenderId?: string;
+  RecommenderName?: string;
   Cloud: string;
   Category: Recommendation['category'];
   ImpactedArea: string;
@@ -30,9 +33,18 @@ type RecommendationRow = {
 };
 
 function toRecommendation(row: RecommendationRow): Recommendation {
+  const derivedMetadata = deriveRecommenderMetadata({
+    recommenderId: row.RecommenderId,
+    recommenderName: row.RecommenderName,
+    recommendationSubType: row.RecommendationSubType,
+    recommendationSubTypeId: row.RecommendationSubTypeId,
+  });
+
   return {
     recommendationId: row.RecommendationId,
     generatedDate: row.GeneratedDate,
+    recommenderId: derivedMetadata?.recommenderId || 'unknown-recommender',
+    recommenderName: derivedMetadata?.recommenderName || row.RecommendationSubType || 'Unknown recommender',
     cloud: row.Cloud as Recommendation['cloud'],
     category: row.Category,
     impactedArea: row.ImpactedArea,
@@ -71,6 +83,7 @@ app.http('runRemediation', {
 
     const kql = `
       Recommendations
+      ${buildRecommenderCompatibilityKql()}
       | where RecommendationId == guid('${escapeKql(recommendationId)}')
       | top 1 by GeneratedDate desc
     `;

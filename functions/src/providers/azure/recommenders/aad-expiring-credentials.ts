@@ -66,6 +66,8 @@ export class AadExpiringCredentialsRecommender extends AzureRecommender {
       const baseRecommendation = {
         recommendationId: uuidv4(),
         generatedDate,
+        recommenderId: this.id,
+        recommenderName: this.name,
         cloud: 'Azure',
         recommendationType: 'BestPractices',
         instanceId: String(row.AppId),

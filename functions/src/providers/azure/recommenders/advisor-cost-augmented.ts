@@ -85,6 +85,8 @@ export class AdvisorCostAugmentedRecommender extends AzureRecommender {
       return {
         recommendationId: uuidv4(),
         generatedDate: new Date().toISOString(),
+        recommenderId: this.id,
+        recommenderName: this.name,
         cloud: 'Azure',
         category: 'Cost',
         impactedArea: row.ImpactedArea || 'Microsoft.Advisor/recommendations',

@@ -1,11 +1,9 @@
-// Dashboard page — overview with summary cards, charts, and recent activity
-
-import { Card, CardHeader, Text, Badge, Spinner, Button } from '@fluentui/react-components';
 import { useEffect, useRef, useState } from 'react';
+import { Badge, Button, Card, CardHeader, Spinner, Text } from '@fluentui/react-components';
 import { ArrowSyncRegular } from '@fluentui/react-icons';
 import { useAsync } from '../hooks/useAsync';
 import { getCostSummary, getOrchestrationStatus, getRecommendationsSummary, getStatus, startCollection, startRecommendation } from '../services/api';
-import type { CostSummaryRow } from '../services/api';
+import type { CostSummaryRow, RecommendationSummaryRow } from '../services/api';
 
 const IMPACT_COLORS: Record<string, 'danger' | 'warning' | 'informative'> = {
   High: 'danger',
@@ -22,13 +20,20 @@ const CATEGORY_LABELS: Record<string, string> = {
   Governance: 'Governance',
 };
 
+function formatCurrency(value: number) {
+  return value.toLocaleString(undefined, { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 export function DashboardPage() {
   const status = useAsync(() => getStatus(), []);
   const summary = useAsync(() => getRecommendationsSummary(), []);
   const costSummary = useAsync(() => getCostSummary(), []);
   const [isCollectionRunning, setIsCollectionRunning] = useState(false);
+  const [isRecommendationRunning, setIsRecommendationRunning] = useState(false);
   const [collectionStatusMessage, setCollectionStatusMessage] = useState<string | null>(null);
+  const [recommendationStatusMessage, setRecommendationStatusMessage] = useState<string | null>(null);
   const collectionPollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recommendationPollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const stopCollectionPolling = () => {
     if (collectionPollTimerRef.current) {
@@ -37,29 +42,36 @@ export function DashboardPage() {
     }
   };
 
+  const stopRecommendationPolling = () => {
+    if (recommendationPollTimerRef.current) {
+      clearInterval(recommendationPollTimerRef.current);
+      recommendationPollTimerRef.current = null;
+    }
+  };
+
   useEffect(() => {
     return () => {
       stopCollectionPolling();
+      stopRecommendationPolling();
     };
   }, []);
 
-  // Aggregate by category
   const byCategory: Record<string, number> = {};
   const byImpact: Record<string, number> = {};
+  const byRecommender: Record<string, number> = {};
   let totalRecs = 0;
 
   if (summary.data) {
-    for (const row of summary.data as any[]) {
-      const cat = row.Category as string;
-      const impact = row.Impact as string;
-      const count = row.Count as number;
-      byCategory[cat] = (byCategory[cat] ?? 0) + count;
-      byImpact[impact] = (byImpact[impact] ?? 0) + count;
-      totalRecs += count;
+    for (const row of summary.data as RecommendationSummaryRow[]) {
+      byCategory[row.Category] = (byCategory[row.Category] ?? 0) + row.Count;
+      byImpact[row.Impact] = (byImpact[row.Impact] ?? 0) + row.Count;
+
+      const recommenderLabel = row.RecommenderName?.trim() || row.RecommenderId?.trim() || 'Unknown recommender';
+      byRecommender[recommenderLabel] = (byRecommender[recommenderLabel] ?? 0) + row.Count;
+      totalRecs += row.Count;
     }
   }
 
-  // Aggregate cost/savings totals
   let totalCost30d = 0;
   let totalMonthlySavings = 0;
   let totalAnnualSavings = 0;
@@ -77,8 +89,15 @@ export function DashboardPage() {
     }
   }
 
-  const formatCurrency = (value: number) =>
-    value.toLocaleString(undefined, { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const topRecommenders = Object.entries(byRecommender)
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, 6);
+
+  const refreshAll = () => {
+    status.refresh();
+    summary.refresh();
+    costSummary.refresh();
+  };
 
   const handleRunCollection = async () => {
     if (isCollectionRunning) return;
@@ -100,6 +119,7 @@ export function DashboardPage() {
 
       collectionPollTimerRef.current = setInterval(async () => {
         pollCount += 1;
+
         try {
           const orchestration = await getOrchestrationStatus(instanceId);
 
@@ -107,9 +127,7 @@ export function DashboardPage() {
             const output = (orchestration.output ?? {}) as {
               totalCollectors?: number;
               totalRecords?: number;
-              failures?: number;
               warnings?: number;
-              warningSummary?: string[];
             };
 
             const totalCollectors = Number(output.totalCollectors ?? 0);
@@ -117,15 +135,13 @@ export function DashboardPage() {
             const warnings = Number(output.warnings ?? 0);
 
             stopCollectionPolling();
-            if (warnings > 0) {
-              setCollectionStatusMessage(`Collection completed with warnings: ${totalCollectors} collectors ran, ${totalRecords} records ingested, ${warnings} optional collectors failed`);
-            } else {
-              setCollectionStatusMessage(`Collection completed: ${totalCollectors} collectors ran, ${totalRecords} records ingested`);
-            }
+            setCollectionStatusMessage(
+              warnings > 0
+                ? `Collection completed with warnings: ${totalCollectors} collectors ran, ${totalRecords} records ingested, ${warnings} optional collectors failed`
+                : `Collection completed: ${totalCollectors} collectors ran, ${totalRecords} records ingested`,
+            );
             setIsCollectionRunning(false);
-            status.refresh();
-            summary.refresh();
-            costSummary.refresh();
+            refreshAll();
             return;
           }
 
@@ -146,7 +162,7 @@ export function DashboardPage() {
           }
         } catch {
           stopCollectionPolling();
-          setCollectionStatusMessage('Could not refresh status while polling');
+          setCollectionStatusMessage('Could not refresh collection status while polling');
           setIsCollectionRunning(false);
         }
       }, 5000);
@@ -159,18 +175,83 @@ export function DashboardPage() {
   };
 
   const handleRunRecommendation = async () => {
-    await startRecommendation();
-    status.refresh();
+    if (isRecommendationRunning) return;
+
+    setIsRecommendationRunning(true);
+    setRecommendationStatusMessage('Recommendation run started');
+
+    try {
+      const startResponse = await startRecommendation();
+      const instanceId = String(startResponse.id ?? '');
+      if (!instanceId) {
+        throw new Error('Recommendation orchestration did not return an instance ID');
+      }
+
+      stopRecommendationPolling();
+
+      let pollCount = 0;
+      const maxPollCount = 72;
+
+      recommendationPollTimerRef.current = setInterval(async () => {
+        pollCount += 1;
+
+        try {
+          const orchestration = await getOrchestrationStatus(instanceId);
+
+          if (orchestration.runtimeStatus === 'Completed') {
+            const output = (orchestration.output ?? {}) as {
+              totalRecommenders?: number;
+              totalRecommendations?: number;
+            };
+
+            const totalRecommenders = Number(output.totalRecommenders ?? 0);
+            const totalRecommendations = Number(output.totalRecommendations ?? 0);
+
+            stopRecommendationPolling();
+            setRecommendationStatusMessage(
+              `Recommendation run completed: ${totalRecommenders} functions ran, ${totalRecommendations} recommendations generated`,
+            );
+            setIsRecommendationRunning(false);
+            refreshAll();
+            return;
+          }
+
+          if (orchestration.runtimeStatus === 'Failed' || orchestration.runtimeStatus === 'Terminated') {
+            const reason = typeof orchestration.output === 'string' ? orchestration.output : `Runtime status: ${orchestration.runtimeStatus}`;
+            stopRecommendationPolling();
+            setRecommendationStatusMessage(`Recommendation run failed: ${reason}`);
+            setIsRecommendationRunning(false);
+            status.refresh();
+            return;
+          }
+
+          if (pollCount >= maxPollCount) {
+            stopRecommendationPolling();
+            setRecommendationStatusMessage('Recommendation run is still running. Check orchestration status in a moment');
+            setIsRecommendationRunning(false);
+            status.refresh();
+          }
+        } catch {
+          stopRecommendationPolling();
+          setRecommendationStatusMessage('Could not refresh recommendation status while polling');
+          setIsRecommendationRunning(false);
+        }
+      }, 5000);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setRecommendationStatusMessage(`Failed to start recommendation run: ${message}`);
+      setIsRecommendationRunning(false);
+      stopRecommendationPolling();
+    }
   };
 
-  if (status.loading || summary.loading) {
+  if (status.loading || summary.loading || costSummary.loading) {
     return <Spinner label="Loading dashboard..." />;
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      {/* Status banner */}
-      <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
         <Badge appearance="filled" color={status.data?.status === 'healthy' ? 'success' : 'warning'} size="large">
           {status.data?.status ?? 'unknown'}
         </Badge>
@@ -185,8 +266,8 @@ export function DashboardPage() {
           <Button icon={<ArrowSyncRegular />} appearance="subtle" onClick={handleRunCollection} disabled={isCollectionRunning}>
             {isCollectionRunning ? 'Running collection…' : 'Run collection'}
           </Button>
-          <Button icon={<ArrowSyncRegular />} appearance="subtle" onClick={handleRunRecommendation}>
-            Run recommendations
+          <Button icon={<ArrowSyncRegular />} appearance="subtle" onClick={handleRunRecommendation} disabled={isRecommendationRunning}>
+            {isRecommendationRunning ? 'Running recommendations…' : 'Run recommendations'}
           </Button>
         </div>
       </div>
@@ -196,8 +277,12 @@ export function DashboardPage() {
           {collectionStatusMessage}
         </Text>
       )}
+      {recommendationStatusMessage && (
+        <Text size={200} style={{ color: '#0f6cbd' }}>
+          {recommendationStatusMessage}
+        </Text>
+      )}
 
-      {/* Cost & savings summary */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
         <Card>
           <CardHeader
@@ -231,7 +316,6 @@ export function DashboardPage() {
         </Card>
       </div>
 
-      {/* Summary cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
         <Card>
           <CardHeader
@@ -245,9 +329,9 @@ export function DashboardPage() {
         </Card>
 
         {Object.entries(byImpact)
-          .sort(([a], [b]) => {
+          .sort(([left], [right]) => {
             const order = ['High', 'Medium', 'Low'];
-            return order.indexOf(a) - order.indexOf(b);
+            return order.indexOf(left) - order.indexOf(right);
           })
           .map(([impact, count]) => (
             <Card key={impact}>
@@ -268,18 +352,35 @@ export function DashboardPage() {
           ))}
       </div>
 
-      {/* By category */}
+      {topRecommenders.length > 0 && (
+        <div>
+          <Text weight="semibold" size={500} style={{ marginBottom: 12, display: 'block' }}>
+            Top recommendation functions
+          </Text>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+            {topRecommenders.map(([recommender, count]) => (
+              <Card key={recommender}>
+                <CardHeader
+                  header={<Text weight="semibold">{recommender}</Text>}
+                  description={<Text size={600}>{count} recommendations</Text>}
+                />
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div>
         <Text weight="semibold" size={500} style={{ marginBottom: 12, display: 'block' }}>
           By category
         </Text>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
-          {Object.entries(byCategory).map(([cat, count]) => {
-            const catCost = costByCategory[cat];
+          {Object.entries(byCategory).map(([category, count]) => {
+            const catCost = costByCategory[category];
             return (
-              <Card key={cat}>
+              <Card key={category}>
                 <CardHeader
-                  header={<Text weight="semibold">{CATEGORY_LABELS[cat] ?? cat}</Text>}
+                  header={<Text weight="semibold">{CATEGORY_LABELS[category] ?? category}</Text>}
                   description={
                     <div>
                       <Text size={600}>{count} recommendations</Text>
@@ -297,7 +398,6 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* Table counts */}
       {status.data?.tableCounts && Object.keys(status.data.tableCounts).length > 0 && (
         <div>
           <Text weight="semibold" size={500} style={{ marginBottom: 12, display: 'block' }}>

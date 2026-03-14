@@ -1,6 +1,7 @@
 import { app, type HttpResponseInit } from '@azure/functions';
 import { buildContext } from '../config/index.js';
 import { query } from '../utils/adx-client.js';
+import { buildRecommenderCompatibilityKql } from '../utils/recommender-metadata.js';
 import { buildCostSummaryKql, buildRecommendationsCountKql, buildRecommendationsListKql, buildRecommendationsSummaryKql, escapeKql } from './recommendations-query.js';
 
 // ============================================================================
@@ -19,6 +20,7 @@ app.http('getRecommendations', {
     const category = req.query.get('category');
     const impact = req.query.get('impact');
     const subType = req.query.get('subType');
+    const recommenderId = req.query.get('recommenderId');
     const subscriptionId = req.query.get('subscriptionId');
     const resourceGroup = req.query.get('resourceGroup');
     const limit = Math.min(parseInt(req.query.get('limit') ?? '500', 10), 5000);
@@ -30,6 +32,7 @@ app.http('getRecommendations', {
       category,
       impact,
       subType,
+      recommenderId,
       subscriptionId,
       resourceGroup,
     };
@@ -134,7 +137,12 @@ app.http('getRecommendationById', {
     const id = req.params.recommendationId;
     if (!id) return { status: 400, jsonBody: { error: 'recommendationId is required' } };
 
-    const kql = `Recommendations | where RecommendationId == "${escapeKql(id)}" | take 1`;
+    const kql = `
+      Recommendations
+      ${buildRecommenderCompatibilityKql()}
+      | where RecommendationId == "${escapeKql(id)}"
+      | take 1
+    `;
     const results = await query(ctx, kql);
     if (results.length === 0) return { status: 404, jsonBody: { error: 'Not found' } };
     return { status: 200, jsonBody: results[0] };

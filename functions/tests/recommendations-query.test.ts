@@ -24,6 +24,7 @@ describe('recommendations query builders', () => {
         category: 'Cost',
         impact: 'High',
         subType: 'Idle VM',
+        recommenderId: 'stopped-vms',
         subscriptionId: 'sub-123',
         resourceGroup: 'rg-app',
       },
@@ -36,9 +37,13 @@ describe('recommendations query builders', () => {
     expect(kql).toContain('Category == "Cost"');
     expect(kql).toContain('Impact == "High"');
     expect(kql).toContain('RecommendationSubType == "Idle VM"');
+    expect(kql).toContain('RecommenderId == "stopped-vms"');
     expect(kql).toContain('SubscriptionId == "sub-123"');
     expect(kql).toContain('ResourceGroup =~ "rg-app"');
     expect(kql).toContain('| join kind=leftanti (');
+    expect(kql).toContain('LegacyRecommenderId = case(');
+    expect(kql).toContain('RecommendationSubType startswith "Advisor"');
+    expect(kql).toContain('ImpactSort = case(Impact == "High", 0, Impact == "Medium", 1, 2)');
     expect(kql).toContain('| where RowNum > 50');
     expect(kql).toContain('| take 25');
   });
@@ -51,11 +56,12 @@ describe('recommendations query builders', () => {
     const summaryKql = buildRecommendationsSummaryKql();
 
     expect(countKql).toContain('where GeneratedDate >= latestRunStart');
+    expect(countKql).toContain('RecommenderId = iff(isempty(tostring(column_ifexists("RecommenderId", "")))');
     expect(countKql).toContain('| count');
     expect(countKql).not.toContain('Suppressions');
 
     expect(summaryKql).toContain('where GeneratedDate >= latestRunStart');
-    expect(summaryKql).toContain('| summarize Count = count() by Category, Impact, Cloud, RecommendationSubType');
+    expect(summaryKql).toContain('| summarize Count = count() by Category, Impact, Cloud, RecommendationSubType, RecommenderId, RecommenderName');
     expect(summaryKql).toContain('Suppressions');
   });
 });

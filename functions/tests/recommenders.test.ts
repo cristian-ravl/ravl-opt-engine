@@ -23,6 +23,7 @@ const mockContext: EngineContext = {
   storageAccountName: 'teststorage',
   referenceRegion: 'westeurope',
   consumptionOffsetDays: 7,
+  consumptionCollectionDays: 30,
   longDeallocatedVmDays: 30,
   aadExpiringCredsDays: 30,
   aadMaxCredValidityDays: 730,
@@ -69,6 +70,8 @@ describe('LongDeallocatedVmsRecommender', () => {
     expect(recommendations[0].recommendationSubType).toBe('LongDeallocatedVms');
     expect(recommendations[0].instanceName).toBe('vm1');
     expect(recommendations[0].category).toBe('Cost');
+    expect(recommendations[0].recommenderId).toBe('long-deallocated-vms');
+    expect(recommendations[0].recommenderName).toBe('Long Deallocated VMs');
     expect(recommendations[0].additionalInfo.diskCost30d).toBe(50);
     expect(ingest).toHaveBeenCalled();
   });
@@ -196,6 +199,8 @@ describe('VmHighAvailabilityRecommender', () => {
 
     expect(recommendations[0]).toMatchObject({
       instanceName: 'rg-ha',
+      recommenderId: 'vm-high-availability',
+      recommenderName: 'VM High Availability',
       subscriptionName: 'Production',
       detailsUrl: 'https://portal.azure.com/#@tenant1/resource/subscriptions/sub1/resourceGroups/rg-ha/overview',
       additionalInfo: {

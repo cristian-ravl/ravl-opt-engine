@@ -50,6 +50,10 @@ export interface Recommendation {
   recommendationId: string;
   /** ISO-8601 generation timestamp */
   generatedDate: string;
+  /** Stable recommender identifier */
+  recommenderId: string;
+  /** Human-readable recommender name */
+  recommenderName: string;
   /** Source cloud */
   cloud: CloudProvider;
   /** FinOps category */
