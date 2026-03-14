@@ -1,4 +1,6 @@
 // Collector: Azure consumption/cost details via Microsoft.Consumption usageDetails API.
+// Collects a configurable date range (default 30 days) so recommenders have enough
+// historical cost data. Re-ingested rows are deduplicated by the LatestCostData function.
 
 import type { EngineContext, ICollector, CloudProvider } from '../../types.js';
 import { uploadJsonBlob } from '../../../utils/blob-storage.js';
@@ -7,6 +9,7 @@ import { ingestCollectorRows } from './ingestion.js';
 
 interface UsageDetailRecord {
   properties?: {
+    date?: string;
     subscriptionId?: string;
     subscriptionGuid?: string;
     resourceGroup?: string;
@@ -64,11 +67,21 @@ export class ConsumptionCostCollector implements ICollector {
 
   async collect(ctx: EngineContext): Promise<number> {
     const timestamp = new Date().toISOString();
-    const targetDate = new Date();
-    targetDate.setUTCDate(targetDate.getUTCDate() - ctx.consumptionOffsetDays);
-    const usageDate = toUtcDateString(targetDate);
-    const usageEndExclusive = toUtcDateString(addUtcDays(targetDate, 1));
+
+    // Calculate the date range to collect.
+    // End date: today minus offset (Azure Consumption data lags 24-72h)
+    // Start date: end date minus collectionDays
+    const endDate = new Date();
+    endDate.setUTCDate(endDate.getUTCDate() - ctx.consumptionOffsetDays);
+    const startDate = addUtcDays(endDate, -ctx.consumptionCollectionDays);
+
+    const usageStartStr = toUtcDateString(startDate);
+    const usageEndExclusiveStr = toUtcDateString(addUtcDays(endDate, 1));
+
     const subscriptions = await resolveSubscriptionIds(ctx);
+
+    console.log(`[consumption-collector] Querying usage from ${usageStartStr} to ${toUtcDateString(endDate)} (${ctx.consumptionCollectionDays} days, offset: ${ctx.consumptionOffsetDays})`);
+    console.log(`[consumption-collector] Resolved ${subscriptions.length} subscription(s)`);
 
     let totalRecords = 0;
 
@@ -77,19 +90,38 @@ export class ConsumptionCostCollector implements ICollector {
         'api-version': '2021-10-01',
         metric: 'amortizedcost',
         $expand: 'properties/meterDetails,properties/additionalInfo',
-        $filter: `properties/usageStart ge '${usageDate}' and properties/usageStart lt '${usageEndExclusive}'`,
+        $filter: `properties/usageStart ge '${usageStartStr}' and properties/usageStart lt '${usageEndExclusiveStr}'`,
       });
 
       const path = `/subscriptions/${subscriptionId}/providers/Microsoft.Consumption/usageDetails?${params.toString()}`;
-      const rows = await armGetAll<UsageDetailRecord>(path);
-      if (rows.length === 0) continue;
+
+      let rows: UsageDetailRecord[];
+      try {
+        rows = await armGetAll<UsageDetailRecord>(path);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`[consumption-collector] Subscription ${subscriptionId}: API error — ${message}`);
+        if (message.includes('401') || message.includes('403')) {
+          console.error(`[consumption-collector] Subscription ${subscriptionId} may be missing Cost Management Reader role`);
+        }
+        continue;
+      }
+
+      if (rows.length === 0) {
+        console.log(`[consumption-collector] Subscription ${subscriptionId}: 0 usage rows returned`);
+        continue;
+      }
+
+      console.log(`[consumption-collector] Subscription ${subscriptionId}: ${rows.length} usage rows returned`);
 
       const mapped = rows.map((r) => {
         const props = r.properties ?? {};
         const instanceId = (props.resourceId ?? props.instanceName ?? '').toLowerCase();
-        const billingStart = props.billingPeriodStartDate ?? usageDate;
-        const billingEnd = props.billingPeriodEndDate ?? usageDate;
+        const billingStart = props.billingPeriodStartDate ?? usageStartStr;
+        const billingEnd = props.billingPeriodEndDate ?? usageStartStr;
         const billingPeriod = `${billingStart}/${billingEnd}`;
+        // Use the usage date from the API response; fall back to billing period start
+        const usageDate = props.date ?? billingStart;
 
         return {
           timestamp,
@@ -106,6 +138,7 @@ export class ConsumptionCostCollector implements ICollector {
           currency: props.billingCurrencyCode ?? props.billingCurrency ?? 'USD',
           billingPeriod,
           tags: parseTags(props.tags),
+          usageDate,
         };
       });
 
@@ -115,6 +148,7 @@ export class ConsumptionCostCollector implements ICollector {
       totalRecords += mapped.length;
     }
 
+    console.log(`[consumption-collector] Total records ingested across all subscriptions: ${totalRecords}`);
     return totalRecords;
   }
 }

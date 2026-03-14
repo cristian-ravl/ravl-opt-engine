@@ -47,8 +47,8 @@ export class AdvisorCostAugmentedRecommender extends AzureRecommender {
         | where Category =~ 'Cost'
         | summarize arg_max(Timestamp, *) by InstanceId, RecommendationSubTypeId;
 
-      let cost30d = CostData
-        | where Timestamp > ago(30d)
+      let cost30d = LatestCostData
+        | where UsageDate >= ago(30d)
         | summarize Cost30d = sum(Cost), Currency = any(Currency) by InstanceId = tolower(InstanceId);
 
       let vmPriceSheet = PriceSheetData

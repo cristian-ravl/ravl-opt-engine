@@ -37,21 +37,21 @@ export class StorageAccountOptimizationsRecommender extends AzureRecommender {
 
     const kql = `
       let interval = ${growthLookbackDays}d;
-      let etime = endofday(todatetime(toscalar(CostData | where Timestamp > ago(interval) and Timestamp < now() | summarize max(Timestamp))));
+      let etime = endofday(todatetime(toscalar(LatestCostData | where UsageDate >= ago(interval) | summarize max(UsageDate))));
       let stime = endofday(etime - interval);
       let lastday_stime = endofday(etime - 1d);
-      let storageAccountsWithLastTags = CostData
-        | where Timestamp between (lastday_stime .. etime)
+      let storageAccountsWithLastTags = LatestCostData
+        | where UsageDate between (lastday_stime .. etime)
         | where MeterCategory == 'Storage' and InstanceId has '/providers/microsoft.storage/storageaccounts/' and MeterName endswith 'Data Stored'
         | summarize arg_max(Timestamp, Tags) by ResourceId = tolower(InstanceId);
       let subscriptionContainers = ResourceContainers
         | where ContainerType =~ 'Subscription'
         | summarize arg_max(Timestamp, *) by SubscriptionId
         | project SubscriptionId, SubscriptionName = ContainerName, TenantId;
-      CostData
-      | where Timestamp between (stime .. etime)
+      LatestCostData
+      | where UsageDate between (stime .. etime)
       | where MeterCategory == 'Storage' and InstanceId has '/providers/microsoft.storage/storageaccounts/' and MeterName endswith 'Data Stored'
-      | make-series CostSum = sum(Cost) default = 0.0 on Timestamp from stime to etime step 1d by ResourceId = tolower(InstanceId), ResourceGroup, SubscriptionId
+      | make-series CostSum = sum(Cost) default = 0.0 on UsageDate from stime to etime step 1d by ResourceId = tolower(InstanceId), ResourceGroup, SubscriptionId
       | extend InitialDailyCost = todouble(CostSum[0]), CurrentDailyCost = todouble(CostSum[array_length(CostSum) - 1])
       | extend GrowthPercentage = round((CurrentDailyCost - InitialDailyCost) / InitialDailyCost * 100.0, 2)
       | where InitialDailyCost > 0 and CurrentDailyCost > ${dailyCostThreshold} and GrowthPercentage > ${growthThreshold}

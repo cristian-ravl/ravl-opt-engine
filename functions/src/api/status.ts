@@ -50,7 +50,10 @@ app.http('getStatus', {
           (VirtualMachines | count | extend TableName = "VirtualMachines"),
           (ManagedDisks | count | extend TableName = "ManagedDisks"),
           (Recommendations | count | extend TableName = "Recommendations"),
-          (Suppressions | count | extend TableName = "Suppressions")
+          (Suppressions | count | extend TableName = "Suppressions"),
+          (CostData | count | extend TableName = "CostData"),
+          (PriceSheetData | count | extend TableName = "PriceSheetData"),
+          (IngestionControl | count | extend TableName = "IngestionControl")
         | project TableName, Count
       `;
       const tableResults = await query<{ TableName: string; Count: number }>(ctx, tableCountsKql);

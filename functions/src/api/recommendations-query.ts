@@ -106,6 +106,24 @@ export function buildRecommendationsSummaryKql(): string {
   `;
 }
 
+export function buildCostSummaryKql(): string {
+  return `
+    ${buildLatestRecommendationsBaseKql()}
+    ${buildRecommendationSuppressionJoinKql(false)}
+    | extend MonthlySavings = todouble(coalesce(AdditionalInfo.savingsAmount, 0))
+    | extend AnnualSavings = todouble(coalesce(AdditionalInfo.annualSavingsAmount, 0))
+    | extend Cost30d = todouble(coalesce(AdditionalInfo.cost30d, AdditionalInfo.diskCost30d, 0))
+    | extend Currency = tostring(coalesce(AdditionalInfo.currency, AdditionalInfo.savingsCurrency, "USD"))
+    | summarize
+        Count = count(),
+        TotalMonthlySavings = sum(MonthlySavings),
+        TotalAnnualSavings = sum(AnnualSavings),
+        TotalCost30d = sum(Cost30d)
+      by Category, Currency
+    | order by TotalMonthlySavings desc
+  `;
+}
+
 /** Escape for safe KQL string interpolation */
 export function escapeKql(value: string): string {
   return value

@@ -116,8 +116,8 @@ export class VmssOptimizationsRecommender extends AzureRecommender {
     const underusedKql = `
       let vmss = VirtualMachineScaleSets
         | summarize arg_max(Timestamp, *) by InstanceId;
-      let billedVmss = CostData
-        | where Timestamp > ago(30d) and InstanceId contains 'virtualmachinescalesets' and MeterCategory == 'Virtual Machines'
+      let billedVmss = LatestCostData
+        | where UsageDate >= ago(30d) and InstanceId contains 'virtualmachinescalesets' and MeterCategory == 'Virtual Machines'
         | summarize Last30DaysCost = sum(Cost), Last30DaysQuantity = sum(Quantity), Currency = any(Currency) by InstanceId = tolower(InstanceId);
       let memoryPerf = PerformanceMetrics
         | where Timestamp > ago(${perfDays}d)

@@ -210,8 +210,8 @@ export class VnetOptimizationsRecommender extends AzureRecommender {
       | summarize arg_max(Timestamp, *) by InstanceId
       | where isempty(AssociatedResourceId) and AllocationMethod == "static"
       | join kind=leftouter (
-          CostData
-          | where Timestamp > ago(30d) and MeterCategory has "IP Address"
+          LatestCostData
+          | where UsageDate >= ago(30d) and MeterCategory has "IP Address"
           | summarize Cost30d = sum(Cost), Currency = any(Currency) by InstanceId = tolower(InstanceId)
       ) on $left.InstanceId == $right.InstanceId
       | project InstanceId, Name, ResourceGroup, SubscriptionId, TenantId, Tags, Location, IPAddress, AllocationMethod, Cost30d = coalesce(Cost30d, 0.0), Currency = coalesce(Currency, "USD")

@@ -23,8 +23,8 @@ export class StoppedVmsRecommender extends AzureRecommender {
       LatestVMs
       | where PowerState has "stopped" and not(PowerState has "deallocated")
       | join kind=leftouter (
-          CostData
-          | where Timestamp > ago(30d)
+          LatestCostData
+          | where UsageDate >= ago(30d)
           | where MeterCategory has "Virtual Machines"
           | summarize ComputeCost30d = sum(Cost), Currency = any(Currency) by InstanceId = tolower(InstanceId)
       ) on $left.InstanceId == $right.InstanceId

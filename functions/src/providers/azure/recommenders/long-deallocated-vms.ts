@@ -34,8 +34,8 @@ export class LongDeallocatedVmsRecommender extends AzureRecommender {
       let deallocatedVMs = latestVMs
         | join kind=leftanti runningVMs on InstanceId
         | where StatusDate < ago(${thresholdDays}d);
-      let diskCosts = CostData
-        | where Timestamp > ago(30d)
+      let diskCosts = LatestCostData
+        | where UsageDate >= ago(30d)
         | where MeterCategory has "Storage" or MeterCategory has "Disks"
         | summarize DiskCost30d = sum(Cost), Currency = any(Currency) by InstanceId = tolower(InstanceId);
       let vmDisks = LatestDisks
@@ -84,7 +84,8 @@ export class LongDeallocatedVmsRecommender extends AzureRecommender {
           diskCount: vm.DiskCount,
           totalDiskSizeGB: vm.TotalDiskSizeGB,
           currency: vm.Currency,
-          savingsAmount: vm.TotalDiskCost30d * 12,
+          savingsAmount: vm.TotalDiskCost30d,
+          annualSavingsAmount: vm.TotalDiskCost30d * 12,
           savingsCurrency: vm.Currency,
         },
       }),

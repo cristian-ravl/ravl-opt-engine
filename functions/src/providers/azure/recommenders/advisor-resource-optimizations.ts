@@ -35,8 +35,8 @@ abstract class AdvisorResourceOptimizationBase extends AzureRecommender {
         | where tolower(ImpactedArea) contains '${filter.toLowerCase()}'
         | summarize arg_max(Timestamp, *) by InstanceId, RecommendationSubTypeId;
 
-      let cost30d = CostData
-        | where Timestamp > ago(30d)
+      let cost30d = LatestCostData
+        | where UsageDate >= ago(30d)
         | summarize Cost30d = sum(Cost), Currency = any(Currency) by InstanceId = tolower(InstanceId);
 
       latestAdvisor

@@ -189,6 +189,8 @@ export interface EngineContext {
   referenceRegion: string;
   /** Number of days to offset consumption data */
   consumptionOffsetDays: number;
+  /** Number of days of consumption data to collect per run (default 30) */
+  consumptionCollectionDays: number;
   /** Number of days a VM must be deallocated to trigger recommendation */
   longDeallocatedVmDays: number;
   /** Number of days before credential expiration to trigger alert */

@@ -4,7 +4,8 @@ import { Card, CardHeader, Text, Badge, Spinner, Button } from '@fluentui/react-
 import { useEffect, useRef, useState } from 'react';
 import { ArrowSyncRegular } from '@fluentui/react-icons';
 import { useAsync } from '../hooks/useAsync';
-import { getOrchestrationStatus, getRecommendationsSummary, getStatus, startCollection, startRecommendation } from '../services/api';
+import { getCostSummary, getOrchestrationStatus, getRecommendationsSummary, getStatus, startCollection, startRecommendation } from '../services/api';
+import type { CostSummaryRow } from '../services/api';
 
 const IMPACT_COLORS: Record<string, 'danger' | 'warning' | 'informative'> = {
   High: 'danger',
@@ -24,6 +25,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 export function DashboardPage() {
   const status = useAsync(() => getStatus(), []);
   const summary = useAsync(() => getRecommendationsSummary(), []);
+  const costSummary = useAsync(() => getCostSummary(), []);
   const [isCollectionRunning, setIsCollectionRunning] = useState(false);
   const [collectionStatusMessage, setCollectionStatusMessage] = useState<string | null>(null);
   const collectionPollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -56,6 +58,27 @@ export function DashboardPage() {
       totalRecs += count;
     }
   }
+
+  // Aggregate cost/savings totals
+  let totalCost30d = 0;
+  let totalMonthlySavings = 0;
+  let totalAnnualSavings = 0;
+  const costByCategory: Record<string, { cost: number; savings: number }> = {};
+
+  if (costSummary.data) {
+    for (const row of costSummary.data as CostSummaryRow[]) {
+      totalCost30d += row.TotalCost30d;
+      totalMonthlySavings += row.TotalMonthlySavings;
+      totalAnnualSavings += row.TotalAnnualSavings;
+      const entry = costByCategory[row.Category] ?? { cost: 0, savings: 0 };
+      entry.cost += row.TotalCost30d;
+      entry.savings += row.TotalMonthlySavings;
+      costByCategory[row.Category] = entry;
+    }
+  }
+
+  const formatCurrency = (value: number) =>
+    value.toLocaleString(undefined, { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const handleRunCollection = async () => {
     if (isCollectionRunning) return;
@@ -102,6 +125,7 @@ export function DashboardPage() {
             setIsCollectionRunning(false);
             status.refresh();
             summary.refresh();
+            costSummary.refresh();
             return;
           }
 
@@ -173,6 +197,40 @@ export function DashboardPage() {
         </Text>
       )}
 
+      {/* Cost & savings summary */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
+        <Card>
+          <CardHeader
+            header={<Text weight="semibold">Monthly cost (30d)</Text>}
+            description={
+              <Text size={800} weight="bold">
+                {formatCurrency(totalCost30d)}
+              </Text>
+            }
+          />
+        </Card>
+        <Card>
+          <CardHeader
+            header={<Text weight="semibold">Potential monthly savings</Text>}
+            description={
+              <Text size={800} weight="bold" style={{ color: totalMonthlySavings > 0 ? '#107c10' : undefined }}>
+                {formatCurrency(totalMonthlySavings)}
+              </Text>
+            }
+          />
+        </Card>
+        <Card>
+          <CardHeader
+            header={<Text weight="semibold">Potential annual savings</Text>}
+            description={
+              <Text size={800} weight="bold" style={{ color: totalAnnualSavings > 0 ? '#107c10' : undefined }}>
+                {formatCurrency(totalAnnualSavings)}
+              </Text>
+            }
+          />
+        </Card>
+      </div>
+
       {/* Summary cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
         <Card>
@@ -216,11 +274,26 @@ export function DashboardPage() {
           By category
         </Text>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
-          {Object.entries(byCategory).map(([cat, count]) => (
-            <Card key={cat}>
-              <CardHeader header={<Text weight="semibold">{CATEGORY_LABELS[cat] ?? cat}</Text>} description={<Text size={600}>{count} recommendations</Text>} />
-            </Card>
-          ))}
+          {Object.entries(byCategory).map(([cat, count]) => {
+            const catCost = costByCategory[cat];
+            return (
+              <Card key={cat}>
+                <CardHeader
+                  header={<Text weight="semibold">{CATEGORY_LABELS[cat] ?? cat}</Text>}
+                  description={
+                    <div>
+                      <Text size={600}>{count} recommendations</Text>
+                      {catCost && catCost.savings > 0 && (
+                        <Text size={200} style={{ display: 'block', color: '#107c10', marginTop: 4 }}>
+                          Savings: {formatCurrency(catCost.savings)}/mo
+                        </Text>
+                      )}
+                    </div>
+                  }
+                />
+              </Card>
+            );
+          })}
         </div>
       </div>
 

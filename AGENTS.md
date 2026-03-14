@@ -1,6 +1,6 @@
 # Optimization Engine v2 agent guide
 
-This file applies to `src/optimization-engine-v2/**` and supplements the root repository instructions in `.github/copilot-instructions.md`.
+This file applies to this repository (`ravl-opt-engine/**`) and supplements the root repository instructions in `.github/copilot-instructions.md` when present.
 
 ## Keep the architecture aligned
 
@@ -68,11 +68,11 @@ This file applies to `src/optimization-engine-v2/**` and supplements the root re
 
 ## Validation expectations
 
-- For Functions changes, run these in `src/optimization-engine-v2/functions/` when relevant:
+- For Functions changes, run these in `functions/` when relevant:
   - `npm run lint`
   - `npm test`
   - `npm run build`
-- For web changes, run this in `src/optimization-engine-v2/web/` when relevant:
+- For web changes, run this in `web/` when relevant:
   - `npm run build`
 - For cross-cutting changes, verify the README and code still agree on:
   - API routes
@@ -82,12 +82,12 @@ This file applies to `src/optimization-engine-v2/**` and supplements the root re
 
 ## Documentation expectations
 
-- Update `src/optimization-engine-v2/README.md` when you change architecture, endpoints, environment variables, deployment behavior, or provider capabilities.
+- Update `README.md` when you change architecture, endpoints, environment variables, deployment behavior, or provider capabilities.
 - Follow the root repository guidance for changelog updates when the change is externally visible.
 
 ## Good defaults for future agents
 
-- Start by reading `src/optimization-engine-v2/README.md`.
+- Start by reading `README.md`.
 - Check for existing patterns before creating a new abstraction.
 - Keep comments useful and brief.
 - Choose boring, maintainable solutions over clever ones.

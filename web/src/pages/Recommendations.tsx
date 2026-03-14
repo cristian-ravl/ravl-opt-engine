@@ -133,6 +133,8 @@ export function RecommendationsPage() {
                 <TableHeaderCell style={{ width: 200 }}>Type</TableHeaderCell>
                 <TableHeaderCell>Resource</TableHeaderCell>
                 <TableHeaderCell>Description</TableHeaderCell>
+                <TableHeaderCell style={{ width: 100, textAlign: 'right' }}>Cost (30d)</TableHeaderCell>
+                <TableHeaderCell style={{ width: 100, textAlign: 'right' }}>Savings/mo</TableHeaderCell>
                 <TableHeaderCell style={{ width: 60 }}>Score</TableHeaderCell>
                 <TableHeaderCell style={{ width: 100 }}>Actions</TableHeaderCell>
               </TableRow>
@@ -157,6 +159,26 @@ export function RecommendationsPage() {
                   </TableCell>
                   <TableCell>
                     <Text size={200}>{rec.RecommendationDescription}</Text>
+                  </TableCell>
+                  <TableCell style={{ textAlign: 'right' }}>
+                    <Text size={200}>
+                      {(() => {
+                        const cost = Number(rec.AdditionalInfo?.cost30d ?? rec.AdditionalInfo?.diskCost30d ?? 0);
+                        if (!cost) return '—';
+                        const currency = String(rec.AdditionalInfo?.currency ?? 'USD');
+                        return cost.toLocaleString(undefined, { style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                      })()}
+                    </Text>
+                  </TableCell>
+                  <TableCell style={{ textAlign: 'right' }}>
+                    <Text size={200}>
+                      {(() => {
+                        const savings = Number(rec.AdditionalInfo?.savingsAmount ?? 0);
+                        if (!savings) return '—';
+                        const currency = String(rec.AdditionalInfo?.currency ?? rec.AdditionalInfo?.savingsCurrency ?? 'USD');
+                        return savings.toLocaleString(undefined, { style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                      })()}
+                    </Text>
                   </TableCell>
                   <TableCell>{rec.FitScore}</TableCell>
                   <TableCell>

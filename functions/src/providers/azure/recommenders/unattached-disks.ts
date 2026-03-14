@@ -24,8 +24,8 @@ export class UnattachedDisksRecommender extends AzureRecommender {
       | where isempty(OwnerVMId)
       | where not(Tags has "ASR-ReplicaDisk") and not(Tags has "asrseeddisk")
       | join kind=leftouter (
-          CostData
-          | where Timestamp > ago(30d)
+          LatestCostData
+          | where UsageDate >= ago(30d)
           | where MeterCategory has "Storage" or MeterCategory has "Disks"
           | summarize DiskCost30d = sum(Cost), Currency = any(Currency) by InstanceId = tolower(InstanceId)
       ) on $left.InstanceId == $right.InstanceId

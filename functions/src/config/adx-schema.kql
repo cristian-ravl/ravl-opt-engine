@@ -628,7 +628,8 @@
     Cost: real,
     Currency: string,
     BillingPeriod: string,
-    Tags: dynamic
+    Tags: dynamic,
+    UsageDate: datetime
     )
 
 // ============================================================================
@@ -720,7 +721,7 @@
     '[{"column":"FilterId","path":"$.filterId"},{"column":"RecommendationSubTypeId","path":"$.recommendationSubTypeId"},{"column":"FilterType","path":"$.filterType"},{"column":"InstanceId","path":"$.instanceId"},{"column":"FilterStartDate","path":"$.filterStartDate"},{"column":"FilterEndDate","path":"$.filterEndDate"},{"column":"Author","path":"$.author"},{"column":"Notes","path":"$.notes"},{"column":"IsEnabled","path":"$.isEnabled"}]'
 
 .create-or-alter table CostData ingestion json mapping 'CostData_mapping'
-    '[{"column":"Timestamp","path":"$.timestamp"},{"column":"Cloud","path":"$.cloud"},{"column":"SubscriptionId","path":"$.subscriptionId"},{"column":"ResourceGroup","path":"$.resourceGroup"},{"column":"InstanceId","path":"$.instanceId"},{"column":"MeterCategory","path":"$.meterCategory"},{"column":"MeterSubCategory","path":"$.meterSubCategory"},{"column":"MeterName","path":"$.meterName"},{"column":"UnitOfMeasure","path":"$.unitOfMeasure"},{"column":"Quantity","path":"$.quantity"},{"column":"Cost","path":"$.cost"},{"column":"Currency","path":"$.currency"},{"column":"BillingPeriod","path":"$.billingPeriod"},{"column":"Tags","path":"$.tags"}]'
+    '[{"column":"Timestamp","path":"$.timestamp"},{"column":"Cloud","path":"$.cloud"},{"column":"SubscriptionId","path":"$.subscriptionId"},{"column":"ResourceGroup","path":"$.resourceGroup"},{"column":"InstanceId","path":"$.instanceId"},{"column":"MeterCategory","path":"$.meterCategory"},{"column":"MeterSubCategory","path":"$.meterSubCategory"},{"column":"MeterName","path":"$.meterName"},{"column":"UnitOfMeasure","path":"$.unitOfMeasure"},{"column":"Quantity","path":"$.quantity"},{"column":"Cost","path":"$.cost"},{"column":"Currency","path":"$.currency"},{"column":"BillingPeriod","path":"$.billingPeriod"},{"column":"Tags","path":"$.tags"},{"column":"UsageDate","path":"$.usageDate"}]'
 
 .create-or-alter table PerformanceMetrics ingestion json mapping 'PerformanceMetrics_mapping'
     '[{"column":"Timestamp","path":"$.timestamp"},{"column":"Cloud","path":"$.cloud"},{"column":"SubscriptionId","path":"$.subscriptionId"},{"column":"InstanceId","path":"$.instanceId"},{"column":"MetricName","path":"$.metricName"},{"column":"AggregationType","path":"$.aggregationType"},{"column":"AggregationOfType","path":"$.aggregationOfType"},{"column":"Value","path":"$.value"},{"column":"Unit","path":"$.unit"},{"column":"TimeGrain","path":"$.timeGrain"},{"column":"TimeSpan","path":"$.timeSpan"}]'
@@ -795,6 +796,18 @@
 ```
 {"SoftDeletePeriod":"730.00:00:00","Recoverability":"Enabled"}
 ```
+
+// ============================================================================
+// Stored functions for deduplicated views
+// ============================================================================
+
+// Deduplicated cost data: when CostData is re-ingested for the same usage date,
+// only the most recently collected row per (UsageDate, InstanceId, MeterCategory,
+// MeterSubCategory, MeterName) is kept.
+.create-or-alter function LatestCostData() {
+    CostData
+    | summarize arg_max(Timestamp, *) by UsageDate, InstanceId, MeterCategory, MeterSubCategory, MeterName
+}
 
 // ============================================================================
 // Materialized views for latest snapshot queries

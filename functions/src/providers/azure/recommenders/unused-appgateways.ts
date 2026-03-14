@@ -24,8 +24,8 @@ export class UnusedAppGatewaysRecommender extends AzureRecommender {
       | summarize arg_max(Timestamp, *) by InstanceId
       | where BackendPoolsCount == 0 or (BackendIPCount == 0 and BackendAddressesCount == 0)
       | join kind=leftouter (
-          CostData
-          | where Timestamp > ago(30d)
+          LatestCostData
+          | where UsageDate >= ago(30d)
           | where MeterCategory has "Application Gateway"
           | summarize Cost30d = sum(Cost), Currency = any(Currency) by InstanceId = tolower(InstanceId)
       ) on $left.InstanceId == $right.InstanceId

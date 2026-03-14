@@ -54,8 +54,8 @@ export class AppServiceOptimizationsRecommender extends AzureRecommender {
       | where NumberOfSites == 0
       | where SkuTier !in ("Free", "Shared")
       | join kind=leftouter (
-          CostData
-          | where Timestamp > ago(30d) and MeterCategory has "Azure App Service"
+          LatestCostData
+          | where UsageDate >= ago(30d) and MeterCategory has "Azure App Service"
           | summarize Cost30d = sum(Cost), Currency = any(Currency) by InstanceId = tolower(InstanceId)
       ) on $left.InstanceId == $right.InstanceId
       | project InstanceId, AppServicePlanName, ResourceGroup, SubscriptionId, TenantId, Tags, Location, SkuName, SkuTier, NumberOfSites, Cost30d = coalesce(Cost30d, 0.0), Currency = coalesce(Currency, "USD")
@@ -113,8 +113,8 @@ export class AppServiceOptimizationsRecommender extends AzureRecommender {
       | join kind=leftouter cpuMetrics on InstanceId
       | join kind=leftouter memMetrics on InstanceId
       | join kind=leftouter (
-          CostData
-          | where Timestamp > ago(30d) and MeterCategory has "Azure App Service"
+          LatestCostData
+          | where UsageDate >= ago(30d) and MeterCategory has "Azure App Service"
           | summarize Cost30d = sum(Cost), Currency = any(Currency) by InstanceId = tolower(InstanceId)
       ) on InstanceId
       | project InstanceId, AppServicePlanName, ResourceGroup, SubscriptionId, TenantId, Tags, Location, SkuName, SkuTier, SkuCapacity, NumberOfSites, AvgCPU = coalesce(AvgCPU, -1.0), MaxCPU = coalesce(MaxCPU, -1.0), AvgMemory = coalesce(AvgMemory, -1.0), MaxMemory = coalesce(MaxMemory, -1.0), Cost30d = coalesce(Cost30d, 0.0), Currency = coalesce(Currency, "USD")

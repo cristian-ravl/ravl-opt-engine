@@ -35,6 +35,7 @@ export function buildContext(): EngineContext {
     storageAccountName: required('OE_STORAGE_ACCOUNT_NAME'),
     referenceRegion: optional('OE_REFERENCE_REGION', 'westeurope'),
     consumptionOffsetDays: optionalInt('OE_CONSUMPTION_OFFSET_DAYS', 2),
+    consumptionCollectionDays: optionalInt('OE_CONSUMPTION_COLLECTION_DAYS', 30),
     longDeallocatedVmDays: optionalInt('OE_LONG_DEALLOCATED_VM_DAYS', 30),
     aadExpiringCredsDays: optionalInt('OE_AAD_EXPIRING_CREDS_DAYS', 30),
     aadMaxCredValidityDays: optionalInt('OE_AAD_MAX_CRED_VALIDITY_DAYS', 730),

@@ -102,8 +102,8 @@ export class DiskOptimizationsRecommender extends AzureRecommender {
     const priceSheetRegionFilter = priceSheetRegion ? `and MeterRegion == '${priceSheetRegion.replace(/'/g, "''")}'` : '';
 
     const disksKql = `
-      let billedDisks = CostData
-        | where Timestamp > ago(30d)
+      let billedDisks = LatestCostData
+        | where UsageDate >= ago(30d)
         | where InstanceId contains '/disks/' and MeterCategory == 'Storage' and MeterSubCategory has 'Premium' and MeterName has 'Disk'
         | summarize Last30DaysCost = sum(Cost), Last30DaysQuantity = sum(Quantity), Currency = any(Currency) by InstanceId = tolower(InstanceId);
       let iopsMetrics = PerformanceMetrics
@@ -195,7 +195,7 @@ export class DiskOptimizationsRecommender extends AzureRecommender {
             targetMaxIOPS: row.MaxIOPSMetric,
             targetMaxMBps: row.MaxMBsMetric,
             savingsAmount,
-            CostsAmount: row.Last30DaysCost,
+            cost30d: row.Last30DaysCost,
             currency: row.Currency,
           },
         }),

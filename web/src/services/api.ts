@@ -105,6 +105,19 @@ export async function deleteSuppression(filterId: string): Promise<void> {
   });
 }
 
+export interface CostSummaryRow {
+  Category: string;
+  Currency: string;
+  Count: number;
+  TotalMonthlySavings: number;
+  TotalAnnualSavings: number;
+  TotalCost30d: number;
+}
+
+export async function getCostSummary(): Promise<CostSummaryRow[]> {
+  return fetchJson(`${API_BASE}/recommendations/cost-summary`);
+}
+
 export async function getStatus(): Promise<EngineStatus> {
   return fetchJson(`${API_BASE}/status`);
 }

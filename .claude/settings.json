@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "command": "if echo \"$CLAUDE_FILE_PATH\" | grep -qE '\\.tsx?$' && echo \"$CLAUDE_FILE_PATH\" | grep -q '/functions/'; then cd /Users/cristian/Documents/dev/Ravl/ravl-opt-engine/functions && npx eslint --fix --no-warn-ignored \"$CLAUDE_FILE_PATH\" 2>/dev/null; fi; exit 0"
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "command": "if echo \"$CLAUDE_FILE_PATH\" | grep -qE '(\\.env|local\\.settings\\.json)$'; then echo 'BLOCKED: Do not edit secrets files (.env, local.settings.json). See AGENTS.md.' && exit 1; fi; exit 0"
+      }
+    ]
+  }
+}

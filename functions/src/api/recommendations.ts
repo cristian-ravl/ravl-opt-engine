@@ -1,7 +1,7 @@
 import { app, type HttpResponseInit } from '@azure/functions';
 import { buildContext } from '../config/index.js';
 import { query } from '../utils/adx-client.js';
-import { buildRecommendationsCountKql, buildRecommendationsListKql, buildRecommendationsSummaryKql, escapeKql } from './recommendations-query.js';
+import { buildCostSummaryKql, buildRecommendationsCountKql, buildRecommendationsListKql, buildRecommendationsSummaryKql, escapeKql } from './recommendations-query.js';
 
 // ============================================================================
 // GET /api/recommendations — list recommendations with optional filters
@@ -92,6 +92,26 @@ app.http('getRecommendationsSummary', {
   handler: async (): Promise<HttpResponseInit> => {
     const ctx = buildContext();
     const kql = buildRecommendationsSummaryKql();
+    try {
+      const results = await query(ctx, kql);
+      return { status: 200, jsonBody: results };
+    } catch {
+      return { status: 200, jsonBody: [] };
+    }
+  },
+});
+
+// ============================================================================
+// GET /api/recommendations/cost-summary — cost and savings aggregation
+// ============================================================================
+
+app.http('getCostSummary', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'recommendations/cost-summary',
+  handler: async (): Promise<HttpResponseInit> => {
+    const ctx = buildContext();
+    const kql = buildCostSummaryKql();
     try {
       const results = await query(ctx, kql);
       return { status: 200, jsonBody: results };

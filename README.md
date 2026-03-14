@@ -64,7 +64,7 @@ A multi-cloud optimization engine built on Azure Durable Functions and Azure Dat
 ## Structure
 
 ```
-optimization-engine-v2/
+ravl-opt-engine/
 ├── functions/           # Azure Durable Functions (TypeScript)
 │   ├── src/
 │   │   ├── api/         # REST API endpoints
@@ -292,7 +292,7 @@ npm install && npm run build
 func azure functionapp publish <function-app-name>
 
 # Build and deploy dashboard
-cd web
+cd ../web
 npm install && npm run build
 # Deploy to Azure Static Web Apps or any static hosting
 ```

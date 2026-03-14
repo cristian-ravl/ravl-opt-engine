@@ -70,8 +70,8 @@ export class SqlDbOptimizationsRecommender extends AzureRecommender {
         | where Timestamp > ago(${perfDays}d)
         | where MetricName == 'dtu_consumption_percent' and AggregationType == 'Maximum'
         | summarize P99DTUPercentage = percentile(Value, ${dtuPercentile}) by InstanceId;
-      let cost30d = CostData
-        | where Timestamp > ago(30d)
+      let cost30d = LatestCostData
+        | where UsageDate >= ago(30d)
         | summarize Last30DaysCost = sum(Cost), Currency = any(Currency) by InstanceId = tolower(InstanceId);
       candidateDatabases
       | join kind=inner dtuMetrics on InstanceId
@@ -116,7 +116,7 @@ export class SqlDbOptimizationsRecommender extends AzureRecommender {
           additionalInfo: {
             currentSku: `${row.SkuName} ${row.ServiceObjectiveName}`.trim(),
             DTUPercentage: Math.round(row.P99DTUPercentage),
-            CostsAmount: row.Last30DaysCost,
+            cost30d: row.Last30DaysCost,
             savingsAmount: row.Last30DaysCost / 2,
             currency: row.Currency,
           },
