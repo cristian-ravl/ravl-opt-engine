@@ -17,6 +17,7 @@ export function StatusPage() {
   }
 
   const s = status.data!;
+  const collectorRuns = [...(s.collectorRuns ?? [])].sort((left, right) => left.name.localeCompare(right.name));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -79,6 +80,42 @@ export function StatusPage() {
           </Table>
         </div>
       </Card>
+
+      {/* Collector freshness */}
+      {collectorRuns.length > 0 && (
+        <div>
+          <Text weight="semibold" size={500} style={{ display: 'block', marginBottom: 12 }}>
+            Collector freshness
+          </Text>
+          <Table size="small">
+            <TableHeader>
+              <TableRow>
+                <TableHeaderCell>Collector</TableHeaderCell>
+                <TableHeaderCell>Cloud</TableHeaderCell>
+                <TableHeaderCell>Collected type</TableHeaderCell>
+                <TableHeaderCell>Last successful collection</TableHeaderCell>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {collectorRuns.map((collector) => (
+                <TableRow key={collector.id}>
+                  <TableCell>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <Text weight="semibold">{collector.name}</Text>
+                      <Text size={200} style={{ color: '#666' }}>
+                        {collector.id}
+                      </Text>
+                    </div>
+                  </TableCell>
+                  <TableCell>{collector.cloud}</TableCell>
+                  <TableCell>{collector.collectedType ?? 'Not ingested yet'}</TableCell>
+                  <TableCell>{collector.lastSuccessfulCollection ?? 'Never'}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       {/* Providers */}
       <div>

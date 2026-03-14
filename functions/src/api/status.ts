@@ -7,6 +7,14 @@ import { query } from '../utils/adx-client.js';
 import { AzureProvider } from '../providers/azure/index.js';
 import type { ICollector, IRecommender, IRemediator } from '../providers/types.js';
 
+type CollectorIngestionStatus = {
+  SourceId: string;
+  LastProcessedDateTime: string;
+  LastProcessedMarker: string;
+  TargetTableSuffix: string;
+  CollectedType: string;
+};
+
 // ============================================================================
 // GET /api/status — engine health overview
 // ============================================================================
@@ -32,12 +40,26 @@ app.http('getStatus', {
     // Get latest collection and recommendation run timestamps
     let lastCollectionRun: string | null = null;
     let lastRecommendationRun: string | null = null;
+    const collectorStatusById = new Map<string, CollectorIngestionStatus>();
     try {
       const collResult = await query<{ LastRun: string }>(ctx, 'IngestionControl | summarize LastRun = max(LastProcessedDateTime)');
       lastCollectionRun = collResult[0]?.LastRun ?? null;
 
       const recResult = await query<{ LastRun: string }>(ctx, 'Recommendations | summarize LastRun = max(GeneratedDate)');
       lastRecommendationRun = recResult[0]?.LastRun ?? null;
+
+      const collectorResults = await query<CollectorIngestionStatus>(
+        ctx,
+        `
+        IngestionControl
+        | summarize arg_max(LastProcessedDateTime, *) by SourceId
+        | project SourceId, LastProcessedDateTime, LastProcessedMarker, TargetTableSuffix, CollectedType
+      `,
+      );
+
+      for (const collector of collectorResults) {
+        collectorStatusById.set(collector.SourceId.toLowerCase(), collector);
+      }
     } catch {
       // Swallow — tables may not exist yet on first run
     }
@@ -77,6 +99,18 @@ app.http('getStatus', {
             remediators: azureProvider.remediators.length,
           },
         },
+        collectorRuns: azureProvider.collectors.map((collector: ICollector) => {
+          const ingestionStatus = collectorStatusById.get(collector.id.toLowerCase());
+          return {
+            id: collector.id,
+            name: collector.name,
+            cloud: collector.cloud,
+            targetSuffix: collector.targetSuffix,
+            collectedType: ingestionStatus?.CollectedType ?? null,
+            lastSuccessfulCollection: ingestionStatus?.LastProcessedDateTime ?? null,
+            lastProcessedMarker: ingestionStatus?.LastProcessedMarker ?? null,
+          };
+        }),
         lastCollectionRun,
         lastRecommendationRun,
         tableCounts: counts,

@@ -33,11 +33,22 @@ interface Suppression {
   isEnabled: boolean;
 }
 
+interface CollectorRunStatus {
+  id: string;
+  name: string;
+  cloud: string;
+  targetSuffix: string;
+  collectedType: string | null;
+  lastSuccessfulCollection: string | null;
+  lastProcessedMarker: string | null;
+}
+
 interface EngineStatus {
   status: string;
   version: string;
   adx: { connected: boolean; clusterUri: string; database: string };
   providers: Record<string, { collectors: number; recommenders: number; remediators: number }>;
+  collectorRuns: CollectorRunStatus[];
   lastCollectionRun: string | null;
   lastRecommendationRun: string | null;
   tableCounts: Record<string, number>;
@@ -138,4 +149,4 @@ export async function getOrchestrationStatus(instanceId: string): Promise<Orches
   return fetchJson(`${API_BASE}/status/orchestrations/${encodeURIComponent(instanceId)}`);
 }
 
-export type { PaginatedResponse, RecommendationFilters, Suppression, EngineStatus, OrchestrationStatus };
+export type { PaginatedResponse, RecommendationFilters, Suppression, CollectorRunStatus, EngineStatus, OrchestrationStatus };
