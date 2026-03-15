@@ -18,6 +18,13 @@ import {
 import type { CostSummaryRow, RecommendationRecord, RecommendationSummaryRow } from '../services/api';
 import './Dashboard.css';
 
+type CurrencyAmount = {
+  currency: string;
+  amount: number;
+};
+
+const DISPLAY_CURRENCY = 'CAD';
+
 const IMPACT_COLORS: Record<string, 'danger' | 'warning' | 'informative'> = {
   High: 'danger',
   Medium: 'warning',
@@ -33,12 +40,48 @@ const CATEGORY_LABELS: Record<string, string> = {
   Governance: 'Governance',
 };
 
-function formatCurrency(value: number) {
-  return value.toLocaleString(undefined, { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function formatCurrency(value: number, currency: string) {
+  return value.toLocaleString(undefined, { style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function formatCurrencyForRecommendation(value: number, currency: string) {
-  return value.toLocaleString(undefined, { style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return formatCurrency(value, currency);
+}
+
+function normalizeCurrencyCode(currency: string | null | undefined): string {
+  void currency;
+  return DISPLAY_CURRENCY;
+}
+
+function sortCurrencyAmounts(amounts: CurrencyAmount[]): CurrencyAmount[] {
+  return [...amounts].sort((left, right) => left.currency.localeCompare(right.currency));
+}
+
+function getPrimaryCurrency(amounts: CurrencyAmount[]): string {
+  const nonZeroAmounts = amounts.filter(({ amount }) => amount > 0);
+  if (nonZeroAmounts.length === 0) {
+    return DISPLAY_CURRENCY;
+  }
+
+  return [...nonZeroAmounts].sort((left, right) => right.amount - left.amount)[0].currency;
+}
+
+function getAmountForCurrency(amounts: CurrencyAmount[], currency: string): number {
+  return amounts.find((entry) => entry.currency === currency)?.amount ?? 0;
+}
+
+function getPrimaryAmount(amounts: CurrencyAmount[]): { currency: string; amount: number } | null {
+  const primaryCurrency = getPrimaryCurrency(amounts);
+  const primaryAmount = getAmountForCurrency(amounts, primaryCurrency);
+
+  if (primaryAmount <= 0) {
+    return null;
+  }
+
+  return {
+    currency: primaryCurrency,
+    amount: primaryAmount,
+  };
 }
 
 function getResourceDisplayName(recommendation: RecommendationRecord): string {
@@ -96,22 +139,36 @@ export function DashboardPage() {
     }
   }
 
-  let totalCost30d = 0;
-  let totalMonthlySavings = 0;
-  let totalAnnualSavings = 0;
-  const costByCategory: Record<string, { cost: number; savings: number }> = {};
+  const totalsByCurrency = new Map<string, { cost30d: number; monthlySavings: number; annualSavings: number }>();
+  const costByCategory: Record<string, Record<string, { cost: number; savings: number }>> = {};
 
   if (costSummary.data) {
     for (const row of costSummary.data as CostSummaryRow[]) {
-      totalCost30d += row.TotalCost30d;
-      totalMonthlySavings += row.TotalMonthlySavings;
-      totalAnnualSavings += row.TotalAnnualSavings;
-      const entry = costByCategory[row.Category] ?? { cost: 0, savings: 0 };
+      const currency = normalizeCurrencyCode(row.Currency);
+      const totalEntry = totalsByCurrency.get(currency) ?? { cost30d: 0, monthlySavings: 0, annualSavings: 0 };
+      totalEntry.cost30d += row.TotalCost30d;
+      totalEntry.monthlySavings += row.TotalMonthlySavings;
+      totalEntry.annualSavings += row.TotalAnnualSavings;
+      totalsByCurrency.set(currency, totalEntry);
+
+      const categoryEntries = costByCategory[row.Category] ?? {};
+      const entry = categoryEntries[currency] ?? { cost: 0, savings: 0 };
       entry.cost += row.TotalCost30d;
       entry.savings += row.TotalMonthlySavings;
-      costByCategory[row.Category] = entry;
+      categoryEntries[currency] = entry;
+      costByCategory[row.Category] = categoryEntries;
     }
   }
+
+  const totalCost30dByCurrency = sortCurrencyAmounts(
+    [...totalsByCurrency.entries()].map(([currency, totals]) => ({ currency, amount: totals.cost30d })),
+  );
+  const totalMonthlySavingsByCurrency = sortCurrencyAmounts(
+    [...totalsByCurrency.entries()].map(([currency, totals]) => ({ currency, amount: totals.monthlySavings })),
+  );
+  const totalAnnualSavingsByCurrency = sortCurrencyAmounts(
+    [...totalsByCurrency.entries()].map(([currency, totals]) => ({ currency, amount: totals.annualSavings })),
+  );
 
   const topRecommenders = Object.entries(byRecommender)
     .sort((left, right) => right[1] - left[1])
@@ -120,6 +177,22 @@ export function DashboardPage() {
   const topOpportunities = (topRecommendations.data?.data ?? []).filter((recommendation) => {
     return getRecommendationCost30d(recommendation) > 0 || getRecommendationMonthlySavings(recommendation) > 0;
   });
+
+  const renderCurrencyBreakdown = (amounts: CurrencyAmount[], options?: { emptyLabel?: string; emphasizeSavings?: boolean }) => {
+    const emptyLabel = options?.emptyLabel ?? '—';
+
+    const primaryAmount = getPrimaryAmount(amounts);
+
+    if (!primaryAmount) {
+      return <Text size={800} weight="bold">{emptyLabel}</Text>;
+    }
+
+    return (
+      <Text size={800} weight="bold" className={options?.emphasizeSavings ? 'dashboard__savingsValue' : undefined}>
+        {formatCurrency(primaryAmount.amount, primaryAmount.currency)}
+      </Text>
+    );
+  };
 
   const refreshAll = () => {
     status.refresh();
@@ -315,31 +388,19 @@ export function DashboardPage() {
         <Card>
           <CardHeader
             header={<Text weight="semibold">Current resource cost (30d)</Text>}
-            description={
-              <Text size={800} weight="bold">
-                {formatCurrency(totalCost30d)}
-              </Text>
-            }
+            description={renderCurrencyBreakdown(totalCost30dByCurrency)}
           />
         </Card>
         <Card>
           <CardHeader
             header={<Text weight="semibold">Expected monthly savings</Text>}
-            description={
-              <Text size={800} weight="bold" className={totalMonthlySavings > 0 ? 'dashboard__savingsValue' : undefined}>
-                {formatCurrency(totalMonthlySavings)}
-              </Text>
-            }
+            description={renderCurrencyBreakdown(totalMonthlySavingsByCurrency, { emphasizeSavings: true })}
           />
         </Card>
         <Card>
           <CardHeader
             header={<Text weight="semibold">Expected annual savings</Text>}
-            description={
-              <Text size={800} weight="bold" className={totalAnnualSavings > 0 ? 'dashboard__savingsValue' : undefined}>
-                {formatCurrency(totalAnnualSavings)}
-              </Text>
-            }
+            description={renderCurrencyBreakdown(totalAnnualSavingsByCurrency, { emphasizeSavings: true })}
           />
         </Card>
       </div>
@@ -446,7 +507,16 @@ export function DashboardPage() {
         </Text>
         <div className="dashboard__categoryGrid">
           {Object.entries(byCategory).map(([category, count]) => {
-            const catCost = costByCategory[category];
+            const catCost = costByCategory[category] ?? {};
+            const categoryCostAmounts = sortCurrencyAmounts(
+              Object.entries(catCost).map(([currency, totals]) => ({ currency, amount: totals.cost })),
+            );
+            const categorySavingsAmounts = sortCurrencyAmounts(
+              Object.entries(catCost).map(([currency, totals]) => ({ currency, amount: totals.savings })),
+            );
+            const categoryCost = getPrimaryAmount(categoryCostAmounts);
+            const categorySavings = getPrimaryAmount(categorySavingsAmounts);
+
             return (
               <Card key={category}>
                 <CardHeader
@@ -454,14 +524,14 @@ export function DashboardPage() {
                   description={
                     <div>
                       <Text size={600}>{count} recommendations</Text>
-                      {catCost && catCost.cost > 0 && (
+                      {categoryCost && (
                         <Text size={200} className="dashboard__mutedText dashboard__detailLine">
-                          Current cost: {formatCurrency(catCost.cost)}/30d
+                          Current cost: {formatCurrency(categoryCost.amount, categoryCost.currency)}/30d
                         </Text>
                       )}
-                      {catCost && catCost.savings > 0 && (
+                      {categorySavings && (
                         <Text size={200} className="dashboard__detailLine dashboard__savingsValue">
-                          Savings: {formatCurrency(catCost.savings)}/mo
+                          Savings: {formatCurrency(categorySavings.amount, categorySavings.currency)}/mo
                         </Text>
                       )}
                     </div>

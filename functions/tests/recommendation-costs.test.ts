@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { aggregateRecommendationCostSummary, getRecommendationCost30d, getRecommendationMonthlySavings, normalizeRecommendationCostFields } from '../src/api/recommendation-costs.js';
+import { aggregateRecommendationCostSummary, enrichRecommendationsWithCostUsage, getRecommendationCost30d, getRecommendationCurrency, getRecommendationMonthlySavings, normalizeRecommendationCostFields } from '../src/api/recommendation-costs.js';
 
 describe('recommendation cost normalization', () => {
   it('maps legacy cost and savings keys to the standard fields', () => {
@@ -86,5 +86,58 @@ describe('recommendation cost normalization', () => {
 
     expect(getRecommendationCost30d(rows[0])).toBe(10);
     expect(getRecommendationMonthlySavings(rows[0])).toBe(10);
+  });
+
+  it('enriches recommendations with cost and usage data from LatestCostData aggregates', () => {
+    const [recommendation] = enrichRecommendationsWithCostUsage(
+      [
+        {
+          InstanceId: '/subscriptions/sub/resourcegroups/rg/providers/microsoft.web/serverfarms/plan-a',
+          AdditionalInfo: null,
+        },
+      ],
+      [
+        {
+          InstanceId: '/subscriptions/sub/resourcegroups/rg/providers/microsoft.web/serverfarms/plan-a',
+          Cost30d: 42.75,
+          Quantity30d: 730,
+          Currency: 'USD',
+          UnitOfMeasure: 'Hours',
+          UnitOfMeasureCount: 1,
+          MeterCount: 1,
+        },
+      ],
+    );
+
+    expect(recommendation.AdditionalInfo).toMatchObject({
+      cost30d: 42.75,
+      costDataCurrency: 'USD',
+      currency: 'USD',
+      savingsCurrency: 'USD',
+      usageQuantity30d: 730,
+      usageUnitOfMeasure: 'Hours',
+      usageUnitOfMeasureCount: 1,
+      usageMeterCount: 1,
+    });
+  });
+
+  it('prefers cost-data currency over generic currency fields', () => {
+    expect(
+      getRecommendationCurrency({
+        AdditionalInfo: {
+          currency: 'USD',
+          savingsCurrency: 'USD',
+          costDataCurrency: 'CAD',
+        },
+      }),
+    ).toBe('CAD');
+  });
+
+  it('falls back to USD when no currency is available', () => {
+    expect(
+      getRecommendationCurrency({
+        AdditionalInfo: {},
+      }),
+    ).toBe('USD');
   });
 });

@@ -2,8 +2,30 @@ import { app, type HttpResponseInit } from '@azure/functions';
 import { buildContext } from '../config/index.js';
 import { query } from '../utils/adx-client.js';
 import { buildRecommenderCompatibilityKql } from '../utils/recommender-metadata.js';
-import { aggregateRecommendationCostSummary, normalizeRecommendationCostFields } from './recommendation-costs.js';
-import { buildCostSummaryKql, buildRecommendationsCountKql, buildRecommendationsListKql, buildRecommendationsSummaryKql, escapeKql } from './recommendations-query.js';
+import { aggregateRecommendationCostSummary, enrichRecommendationsWithCostUsage, type RecommendationCostUsageRow } from './recommendation-costs.js';
+import { buildCostSummaryKql, buildRecommendationCostUsageLookupKql, buildRecommendationsCountKql, buildRecommendationsListKql, buildRecommendationsSummaryKql, escapeKql } from './recommendations-query.js';
+
+type RecommendationApiRow = Record<string, unknown> & {
+  InstanceId?: string | null;
+  AdditionalInfo?: Record<string, unknown> | string | null;
+};
+
+async function enrichRecommendationRowsWithCostUsage(ctx: ReturnType<typeof buildContext>, rows: RecommendationApiRow[]): Promise<RecommendationApiRow[]> {
+  const instanceIds = rows
+    .map((row) => row.InstanceId)
+    .filter((instanceId): instanceId is string => typeof instanceId === 'string' && instanceId.trim().length > 0);
+
+  if (instanceIds.length === 0) {
+    return enrichRecommendationsWithCostUsage(rows, []);
+  }
+
+  try {
+    const costUsageRows = await query<RecommendationCostUsageRow>(ctx, buildRecommendationCostUsageLookupKql(instanceIds));
+    return enrichRecommendationsWithCostUsage(rows, costUsageRows);
+  } catch {
+    return enrichRecommendationsWithCostUsage(rows, []);
+  }
+}
 
 // ============================================================================
 // GET /api/recommendations — list recommendations with optional filters
@@ -45,9 +67,10 @@ app.http('getRecommendations', {
       limit,
     });
 
-    let results: unknown[];
+    let results: RecommendationApiRow[];
     try {
-      results = (await query(ctx, kql)).map((row) => normalizeRecommendationCostFields(row as Record<string, unknown> & { AdditionalInfo?: Record<string, unknown> | null }));
+      const queriedResults = await query<Record<string, unknown>>(ctx, kql);
+      results = await enrichRecommendationRowsWithCostUsage(ctx, queriedResults as RecommendationApiRow[]);
     } catch {
       return {
         status: 200,
@@ -117,9 +140,9 @@ app.http('getCostSummary', {
     const ctx = buildContext();
     const kql = buildCostSummaryKql();
     try {
-      const results = await query(ctx, kql);
-      const normalizedResults = results.map((row) => normalizeRecommendationCostFields(row as Record<string, unknown> & { AdditionalInfo?: Record<string, unknown> | string | null }));
-      return { status: 200, jsonBody: aggregateRecommendationCostSummary(normalizedResults) };
+      const results = await query<Record<string, unknown>>(ctx, kql);
+      const enrichedResults = await enrichRecommendationRowsWithCostUsage(ctx, results as RecommendationApiRow[]);
+      return { status: 200, jsonBody: aggregateRecommendationCostSummary(enrichedResults) };
     } catch {
       return { status: 200, jsonBody: [] };
     }
@@ -145,11 +168,12 @@ app.http('getRecommendationById', {
       | where RecommendationId == "${escapeKql(id)}"
       | take 1
     `;
-    const results = await query(ctx, kql);
+    const results = await query<Record<string, unknown>>(ctx, kql);
     if (results.length === 0) return { status: 404, jsonBody: { error: 'Not found' } };
+    const [enrichedResult] = await enrichRecommendationRowsWithCostUsage(ctx, results as RecommendationApiRow[]);
     return {
       status: 200,
-      jsonBody: normalizeRecommendationCostFields(results[0] as Record<string, unknown> & { AdditionalInfo?: Record<string, unknown> | null }),
+      jsonBody: enrichedResult,
     };
   },
 });

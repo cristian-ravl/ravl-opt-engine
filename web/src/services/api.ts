@@ -1,6 +1,7 @@
 // API service layer for the optimization engine dashboard
 
 const API_BASE = '/api';
+const DEFAULT_DISPLAY_CURRENCY = 'CAD';
 
 interface PaginatedResponse<T> {
   total: number;
@@ -315,9 +316,34 @@ export function getRecommendationAnnualSavings(recommendation: Pick<Recommendati
 }
 
 export function getRecommendationCurrency(recommendation: Pick<RecommendationRecord, 'AdditionalInfo'>): string {
+  void recommendation;
+  return DEFAULT_DISPLAY_CURRENCY;
+}
+
+export function getRecommendationUsageDisplay(recommendation: Pick<RecommendationRecord, 'AdditionalInfo'>): string {
   const additionalInfo = parseAdditionalInfo(recommendation.AdditionalInfo);
-  const possibleCurrency = additionalInfo?.currency ?? additionalInfo?.savingsCurrency ?? 'USD';
-  return typeof possibleCurrency === 'string' && possibleCurrency.trim() ? possibleCurrency : 'USD';
+  const quantity = getAdditionalInfoNumber(recommendation, ['usageQuantity30d', 'last30DaysQuantity', 'quantity30d']);
+
+  if (quantity <= 0) {
+    return '—';
+  }
+
+  const unit = typeof additionalInfo?.usageUnitOfMeasure === 'string' && additionalInfo.usageUnitOfMeasure.trim()
+    ? additionalInfo.usageUnitOfMeasure.trim()
+    : null;
+  const meterCount = getAdditionalInfoNumber(recommendation, ['usageMeterCount']);
+  const unitCount = getAdditionalInfoNumber(recommendation, ['usageUnitOfMeasureCount']);
+  const formattedQuantity = quantity.toLocaleString(undefined, { maximumFractionDigits: quantity >= 100 ? 0 : 2 });
+
+  if (unit && unitCount <= 1) {
+    return `${formattedQuantity} ${unit}`;
+  }
+
+  if (meterCount > 1) {
+    return `${formattedQuantity} across ${meterCount.toLocaleString()} meters`;
+  }
+
+  return formattedQuantity;
 }
 
 export function getRecommendationGeneratorLabel(recommendation: Pick<RecommendationRecord, 'RecommenderId' | 'RecommenderName'>): string {

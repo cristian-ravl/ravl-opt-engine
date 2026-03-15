@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildRecommendationsCountKql, buildRecommendationsListKql, buildRecommendationsSummaryKql } from '../src/api/recommendations-query.js';
+import { buildRecommendationCostUsageLookupKql, buildRecommendationsCountKql, buildRecommendationsListKql, buildRecommendationsSummaryKql } from '../src/api/recommendations-query.js';
 
 describe('recommendations query builders', () => {
   it('clusters the latest recommendation run instead of filtering to one exact timestamp', () => {
@@ -65,5 +65,18 @@ describe('recommendations query builders', () => {
     expect(summaryKql).toContain('where GeneratedDate >= latestRunStart');
     expect(summaryKql).toContain('| summarize Count = count() by Category, Impact, Cloud, RecommendationSubType, RecommenderId, RecommenderName');
     expect(summaryKql).toContain('Suppressions');
+  });
+
+  it('builds a cost and usage lookup for specific instance ids', () => {
+    const kql = buildRecommendationCostUsageLookupKql([
+      '/subscriptions/sub-1/resourcegroups/rg-1/providers/microsoft.compute/virtualmachines/vm-1',
+    ]);
+
+    expect(kql).toContain('LatestCostData');
+    expect(kql).toContain('NormalizedInstanceId = tolower(InstanceId)');
+    expect(kql).toContain('Quantity30d = sum(Quantity)');
+    expect(kql).toContain('UnitOfMeasureCount = dcount(UnitOfMeasure)');
+    expect(kql).toContain('MeterCount = dcount(MeterName)');
+    expect(kql).toContain('by InstanceId = NormalizedInstanceId');
   });
 });

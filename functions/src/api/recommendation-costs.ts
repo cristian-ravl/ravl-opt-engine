@@ -2,6 +2,12 @@ type RecommendationWithAdditionalInfo = {
   AdditionalInfo?: Record<string, unknown> | string | null;
 };
 
+const DEFAULT_CURRENCY = 'USD';
+
+type RecommendationWithInstanceId = RecommendationWithAdditionalInfo & {
+  InstanceId?: unknown;
+};
+
 export type RecommendationCostSummaryRow = {
   Category: string;
   Currency: string;
@@ -9,6 +15,16 @@ export type RecommendationCostSummaryRow = {
   TotalMonthlySavings: number;
   TotalAnnualSavings: number;
   TotalCost30d: number;
+};
+
+export type RecommendationCostUsageRow = {
+  InstanceId: string;
+  Cost30d: number;
+  Quantity30d: number;
+  Currency: string;
+  UnitOfMeasure: string;
+  UnitOfMeasureCount: number;
+  MeterCount: number;
 };
 
 function parseAdditionalInfo(value: RecommendationWithAdditionalInfo['AdditionalInfo']): Record<string, unknown> | null {
@@ -80,7 +96,47 @@ export function getRecommendationAnnualSavings(recommendation: RecommendationWit
 
 export function getRecommendationCurrency(recommendation: RecommendationWithAdditionalInfo): string {
   const additionalInfo = getNormalizedAdditionalInfo(recommendation);
-  return additionalInfo ? getFirstString([additionalInfo.currency, additionalInfo.savingsCurrency, 'USD']) ?? 'USD' : 'USD';
+  return additionalInfo ? getFirstString([additionalInfo.costDataCurrency, additionalInfo.currency, additionalInfo.savingsCurrency, DEFAULT_CURRENCY]) ?? DEFAULT_CURRENCY : DEFAULT_CURRENCY;
+}
+
+export function enrichRecommendationsWithCostUsage<T extends RecommendationWithInstanceId>(
+  recommendations: T[],
+  costUsageRows: RecommendationCostUsageRow[],
+): T[] {
+  const costUsageByInstanceId = new Map(costUsageRows.map((row) => [row.InstanceId.trim().toLowerCase(), row]));
+
+  return recommendations.map((recommendation) => {
+    const normalizedRecommendation = normalizeRecommendationCostFields(recommendation);
+    const normalizedInstanceId = typeof normalizedRecommendation.InstanceId === 'string' ? normalizedRecommendation.InstanceId.trim().toLowerCase() : '';
+    const costUsage = normalizedInstanceId ? costUsageByInstanceId.get(normalizedInstanceId) : undefined;
+
+    if (!costUsage) {
+      return normalizedRecommendation;
+    }
+
+    const additionalInfo = parseAdditionalInfo(normalizedRecommendation.AdditionalInfo) ?? {};
+    const existingCost30d = getFirstFiniteNumber([
+      additionalInfo.cost30d,
+      additionalInfo.diskCost30d,
+      additionalInfo.computeCost30d,
+      additionalInfo.monthlyCost,
+    ]);
+    const existingCurrency = getFirstString([additionalInfo.currency, additionalInfo.savingsCurrency]);
+
+    return {
+      ...normalizedRecommendation,
+      AdditionalInfo: {
+        ...additionalInfo,
+        ...((existingCost30d === null || existingCost30d <= 0) && costUsage.Cost30d > 0 ? { cost30d: costUsage.Cost30d } : {}),
+        ...(costUsage.Currency ? { costDataCurrency: costUsage.Currency } : {}),
+        ...(existingCurrency ? {} : { currency: costUsage.Currency || DEFAULT_CURRENCY, savingsCurrency: costUsage.Currency || DEFAULT_CURRENCY }),
+        ...(costUsage.Quantity30d > 0 ? { usageQuantity30d: costUsage.Quantity30d } : {}),
+        ...(costUsage.UnitOfMeasureCount > 0 ? { usageUnitOfMeasureCount: costUsage.UnitOfMeasureCount } : {}),
+        ...(costUsage.MeterCount > 0 ? { usageMeterCount: costUsage.MeterCount } : {}),
+        ...(costUsage.UnitOfMeasureCount === 1 && costUsage.UnitOfMeasure ? { usageUnitOfMeasure: costUsage.UnitOfMeasure } : {}),
+      },
+    };
+  });
 }
 
 export function aggregateRecommendationCostSummary<T extends RecommendationWithAdditionalInfo & { Category?: unknown }>(
@@ -132,7 +188,7 @@ export function normalizeRecommendationCostFields<T extends RecommendationWithAd
     additionalInfo.savingsAmount,
     annualSavingsAmount !== null ? annualSavingsAmount / 12 : null,
   ]);
-  const currency = getFirstString([additionalInfo.currency, additionalInfo.savingsCurrency, 'USD']);
+  const currency = getFirstString([additionalInfo.currency, additionalInfo.savingsCurrency, DEFAULT_CURRENCY]);
 
   return {
     ...recommendation,

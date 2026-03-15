@@ -120,7 +120,32 @@ export function buildCostSummaryKql(): string {
     ${buildLatestRecommendationsBaseKql()}
     ${buildRecommenderCompatibilityKql()}
     ${buildRecommendationSuppressionJoinKql(false)}
-    | project Category, AdditionalInfo
+    | project Category, InstanceId, AdditionalInfo
+  `;
+}
+
+export function buildRecommendationCostUsageLookupKql(instanceIds: string[]): string {
+  const normalizedInstanceIds = [...new Set(instanceIds.map((instanceId) => instanceId.trim().toLowerCase()).filter(Boolean))];
+
+  if (normalizedInstanceIds.length === 0) {
+    return 'print InstanceId = "", Cost30d = 0.0, Quantity30d = 0.0, Currency = "", UnitOfMeasure = "", UnitOfMeasureCount = 0, MeterCount = 0 | take 0';
+  }
+
+  const serializedInstanceIds = normalizedInstanceIds.map((instanceId) => `"${escapeKql(instanceId)}"`).join(', ');
+
+  return `
+    LatestCostData
+    | where UsageDate >= ago(30d)
+    | extend NormalizedInstanceId = tolower(InstanceId)
+    | where NormalizedInstanceId in (${serializedInstanceIds})
+    | summarize
+        Cost30d = sum(Cost),
+        Quantity30d = sum(Quantity),
+        Currency = any(Currency),
+        UnitOfMeasure = any(UnitOfMeasure),
+        UnitOfMeasureCount = dcount(UnitOfMeasure),
+        MeterCount = dcount(MeterName)
+      by InstanceId = NormalizedInstanceId
   `;
 }
 

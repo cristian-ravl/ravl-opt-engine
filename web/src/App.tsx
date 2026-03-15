@@ -6,6 +6,7 @@ import { DataExplorerPage } from './pages/DataExplorer';
 import { RecommendationsPage } from './pages/Recommendations';
 import { SuppressionsPage } from './pages/Suppressions';
 import { StatusPage } from './pages/Status';
+import './App.css';
 
 type PageId = 'dashboard' | 'recommendations' | 'data-explorer' | 'suppressions' | 'status';
 
@@ -18,18 +19,11 @@ export default function App() {
 
   return (
     <FluentProvider theme={webLightTheme}>
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-        <header
-          style={{
-            padding: '12px 24px',
-            borderBottom: '1px solid #e0e0e0',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 16,
-          }}
-        >
-          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>FinOps Optimization Engine</h1>
-          <TabList selectedValue={activePage} onTabSelect={onTabSelect}>
+      <div className="appShell">
+        <header className="appShell__header">
+          <div className="appShell__headerInner">
+            <h1 className="appShell__title">FinOps Optimization Engine</h1>
+            <TabList className="appShell__tabs" selectedValue={activePage} onTabSelect={onTabSelect}>
             <Tab icon={<HomeRegular />} value="dashboard">
               Dashboard
             </Tab>
@@ -45,15 +39,18 @@ export default function App() {
             <Tab icon={<InfoRegular />} value="status">
               Status
             </Tab>
-          </TabList>
+            </TabList>
+          </div>
         </header>
 
-        <main style={{ flex: 1, overflow: 'auto', padding: 24 }}>
-          {activePage === 'dashboard' && <DashboardPage />}
-          {activePage === 'recommendations' && <RecommendationsPage />}
-          {activePage === 'data-explorer' && <DataExplorerPage />}
-          {activePage === 'suppressions' && <SuppressionsPage />}
-          {activePage === 'status' && <StatusPage />}
+        <main className="appShell__main">
+          <div className="appShell__content">
+            {activePage === 'dashboard' && <DashboardPage />}
+            {activePage === 'recommendations' && <RecommendationsPage />}
+            {activePage === 'data-explorer' && <DataExplorerPage />}
+            {activePage === 'suppressions' && <SuppressionsPage />}
+            {activePage === 'status' && <StatusPage />}
+          </div>
         </main>
       </div>
     </FluentProvider>
