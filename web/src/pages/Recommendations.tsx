@@ -28,8 +28,11 @@ import { ArrowSyncRegular, DismissRegular, FilterRegular } from '@fluentui/react
 import { useAsync } from '../hooks/useAsync';
 import {
   createSuppression,
+  getRecommendationCost30d,
+  getRecommendationCurrency,
   getProviders,
   getRecommendationGeneratorLabel,
+  getRecommendationMonthlySavings,
   getRecommendationResourceUrl,
   getRecommendations,
 } from '../services/api';
@@ -51,25 +54,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   OperationalExcellence: 'Operational excellence',
   Governance: 'Governance',
 };
-
-function getNumericAdditionalInfo(recommendation: RecommendationRecord, key: string): number {
-  const value = recommendation.AdditionalInfo?.[key];
-  const normalizedValue = typeof value === 'number' ? value : Number(value ?? 0);
-  return Number.isFinite(normalizedValue) ? normalizedValue : 0;
-}
-
-function getRecommendationCost30d(recommendation: RecommendationRecord): number {
-  return getNumericAdditionalInfo(recommendation, 'cost30d') || getNumericAdditionalInfo(recommendation, 'diskCost30d');
-}
-
-function getRecommendationMonthlySavings(recommendation: RecommendationRecord): number {
-  return getNumericAdditionalInfo(recommendation, 'savingsAmount');
-}
-
-function getRecommendationCurrency(recommendation: RecommendationRecord): string {
-  const currency = recommendation.AdditionalInfo?.currency ?? recommendation.AdditionalInfo?.savingsCurrency ?? 'USD';
-  return typeof currency === 'string' && currency.trim() ? currency : 'USD';
-}
 
 function formatCurrency(value: number, currency = 'USD'): string {
   return value.toLocaleString(undefined, {

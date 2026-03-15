@@ -832,7 +832,5 @@
 
 .create-or-alter materialized-view ActiveSuppressions on table Suppressions {
     Suppressions
-    | where IsEnabled == true
-    | where FilterEndDate == datetime(null) or FilterEndDate > now()
     | summarize arg_max(FilterStartDate, *) by FilterId
     }

@@ -38,7 +38,7 @@ interface RecommendationRecord {
   RecommendationAction: string;
   InstanceId: string;
   InstanceName: string;
-  AdditionalInfo?: Record<string, unknown> | null;
+  AdditionalInfo?: Record<string, unknown> | string | null;
   ResourceGroup: string;
   SubscriptionId: string;
   SubscriptionName: string;
@@ -133,6 +133,44 @@ interface ProvidersResponse {
   providers: ProviderDefinition[];
 }
 
+type DataExplorerSourceKind = 'table' | 'materializedView';
+
+interface DataExplorerTableDefinition {
+  name: string;
+  kind: DataExplorerSourceKind;
+  group: 'Resources' | 'Cost' | 'Identity' | 'Recommendations' | 'Operations' | 'Views';
+  defaultSortColumn?: string;
+}
+
+interface DataExplorerColumnDefinition {
+  name: string;
+  type: string;
+}
+
+interface DataExplorerQueryOptions {
+  limit?: number;
+  offset?: number;
+  search?: string;
+  sortBy?: string;
+  sortDirection?: 'asc' | 'desc';
+}
+
+interface DataExplorerTableResponse {
+  table: DataExplorerTableDefinition;
+  total: number;
+  offset: number;
+  limit: number;
+  search: string;
+  sortBy: string | null;
+  sortDirection: 'asc' | 'desc';
+  columns: DataExplorerColumnDefinition[];
+  data: Array<Record<string, unknown>>;
+}
+
+interface DataExplorerTablesResponse {
+  tables: DataExplorerTableDefinition[];
+}
+
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...init,
@@ -144,6 +182,23 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   }
   if (response.status === 204) return undefined as T;
   return response.json();
+}
+
+function parseAdditionalInfo(value: RecommendationRecord['AdditionalInfo']): Record<string, unknown> | null {
+  if (!value) {
+    return null;
+  }
+
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  return typeof value === 'object' && !Array.isArray(value) ? value : null;
 }
 
 export async function getRecommendations(filters: RecommendationFilters = {}): Promise<PaginatedResponse<RecommendationRecord>> {
@@ -176,6 +231,13 @@ export async function createSuppression(data: Partial<Suppression>): Promise<Sup
   });
 }
 
+export async function updateSuppression(filterId: string, data: Partial<Suppression>): Promise<Suppression> {
+  return fetchJson(`${API_BASE}/suppressions/${encodeURIComponent(filterId)}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
 export async function deleteSuppression(filterId: string): Promise<void> {
   return fetchJson(`${API_BASE}/suppressions/${encodeURIComponent(filterId)}`, {
     method: 'DELETE',
@@ -201,6 +263,61 @@ export async function getStatus(): Promise<EngineStatus> {
 
 export async function getProviders(): Promise<ProvidersResponse> {
   return fetchJson(`${API_BASE}/providers`);
+}
+
+export async function getDataExplorerTables(): Promise<DataExplorerTablesResponse> {
+  return fetchJson(`${API_BASE}/data-explorer/tables`);
+}
+
+export async function getDataExplorerTableData(tableName: string, options: DataExplorerQueryOptions = {}): Promise<DataExplorerTableResponse> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(options)) {
+    if (value !== undefined && value !== '') params.set(key, String(value));
+  }
+  return fetchJson(`${API_BASE}/data-explorer/tables/${encodeURIComponent(tableName)}?${params}`);
+}
+
+function getAdditionalInfoNumber(recommendation: Pick<RecommendationRecord, 'AdditionalInfo'>, keys: string[]): number {
+  const additionalInfo = parseAdditionalInfo(recommendation.AdditionalInfo);
+  for (const key of keys) {
+    const value = additionalInfo?.[key];
+    const normalizedValue = typeof value === 'number' ? value : Number(value ?? NaN);
+    if (Number.isFinite(normalizedValue)) {
+      return normalizedValue;
+    }
+  }
+
+  return 0;
+}
+
+export function getRecommendationCost30d(recommendation: Pick<RecommendationRecord, 'AdditionalInfo'>): number {
+  return getAdditionalInfoNumber(recommendation, ['cost30d', 'diskCost30d', 'computeCost30d', 'monthlyCost']);
+}
+
+export function getRecommendationMonthlySavings(recommendation: Pick<RecommendationRecord, 'AdditionalInfo'>): number {
+  const directMonthlySavings = getAdditionalInfoNumber(recommendation, ['savingsAmount']);
+  if (directMonthlySavings > 0) {
+    return directMonthlySavings;
+  }
+
+  const annualSavings = getAdditionalInfoNumber(recommendation, ['annualSavingsAmount', 'annualSavings']);
+  return annualSavings > 0 ? annualSavings / 12 : 0;
+}
+
+export function getRecommendationAnnualSavings(recommendation: Pick<RecommendationRecord, 'AdditionalInfo'>): number {
+  const annualSavings = getAdditionalInfoNumber(recommendation, ['annualSavingsAmount', 'annualSavings']);
+  if (annualSavings > 0) {
+    return annualSavings;
+  }
+
+  const monthlySavings = getRecommendationMonthlySavings(recommendation);
+  return monthlySavings > 0 ? monthlySavings * 12 : 0;
+}
+
+export function getRecommendationCurrency(recommendation: Pick<RecommendationRecord, 'AdditionalInfo'>): string {
+  const additionalInfo = parseAdditionalInfo(recommendation.AdditionalInfo);
+  const possibleCurrency = additionalInfo?.currency ?? additionalInfo?.savingsCurrency ?? 'USD';
+  return typeof possibleCurrency === 'string' && possibleCurrency.trim() ? possibleCurrency : 'USD';
 }
 
 export function getRecommendationGeneratorLabel(recommendation: Pick<RecommendationRecord, 'RecommenderId' | 'RecommenderName'>): string {
@@ -243,6 +360,11 @@ export type {
   CollectorRunStatus,
   EngineStatus,
   OrchestrationStatus,
+  DataExplorerTableDefinition,
+  DataExplorerColumnDefinition,
+  DataExplorerQueryOptions,
+  DataExplorerTableResponse,
+  DataExplorerTablesResponse,
   ProviderDefinition,
   ProvidersResponse,
 };

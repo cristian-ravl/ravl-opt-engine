@@ -1,12 +1,13 @@
 import { FluentProvider, webLightTheme, Tab, TabList, type SelectTabData } from '@fluentui/react-components';
-import { HomeRegular, ShieldTaskRegular, FilterRegular, InfoRegular } from '@fluentui/react-icons';
+import { HomeRegular, ShieldTaskRegular, FilterRegular, InfoRegular, TableRegular } from '@fluentui/react-icons';
 import { useState } from 'react';
 import { DashboardPage } from './pages/Dashboard';
+import { DataExplorerPage } from './pages/DataExplorer';
 import { RecommendationsPage } from './pages/Recommendations';
 import { SuppressionsPage } from './pages/Suppressions';
 import { StatusPage } from './pages/Status';
 
-type PageId = 'dashboard' | 'recommendations' | 'suppressions' | 'status';
+type PageId = 'dashboard' | 'recommendations' | 'data-explorer' | 'suppressions' | 'status';
 
 export default function App() {
   const [activePage, setActivePage] = useState<PageId>('dashboard');
@@ -35,6 +36,9 @@ export default function App() {
             <Tab icon={<ShieldTaskRegular />} value="recommendations">
               Recommendations
             </Tab>
+            <Tab icon={<TableRegular />} value="data-explorer">
+              Data Explorer
+            </Tab>
             <Tab icon={<FilterRegular />} value="suppressions">
               Suppressions
             </Tab>
@@ -47,6 +51,7 @@ export default function App() {
         <main style={{ flex: 1, overflow: 'auto', padding: 24 }}>
           {activePage === 'dashboard' && <DashboardPage />}
           {activePage === 'recommendations' && <RecommendationsPage />}
+          {activePage === 'data-explorer' && <DataExplorerPage />}
           {activePage === 'suppressions' && <SuppressionsPage />}
           {activePage === 'status' && <StatusPage />}
         </main>

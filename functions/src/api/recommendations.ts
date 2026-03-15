@@ -2,6 +2,7 @@ import { app, type HttpResponseInit } from '@azure/functions';
 import { buildContext } from '../config/index.js';
 import { query } from '../utils/adx-client.js';
 import { buildRecommenderCompatibilityKql } from '../utils/recommender-metadata.js';
+import { aggregateRecommendationCostSummary, normalizeRecommendationCostFields } from './recommendation-costs.js';
 import { buildCostSummaryKql, buildRecommendationsCountKql, buildRecommendationsListKql, buildRecommendationsSummaryKql, escapeKql } from './recommendations-query.js';
 
 // ============================================================================
@@ -46,7 +47,7 @@ app.http('getRecommendations', {
 
     let results: unknown[];
     try {
-      results = await query(ctx, kql);
+      results = (await query(ctx, kql)).map((row) => normalizeRecommendationCostFields(row as Record<string, unknown> & { AdditionalInfo?: Record<string, unknown> | null }));
     } catch {
       return {
         status: 200,
@@ -117,7 +118,8 @@ app.http('getCostSummary', {
     const kql = buildCostSummaryKql();
     try {
       const results = await query(ctx, kql);
-      return { status: 200, jsonBody: results };
+      const normalizedResults = results.map((row) => normalizeRecommendationCostFields(row as Record<string, unknown> & { AdditionalInfo?: Record<string, unknown> | string | null }));
+      return { status: 200, jsonBody: aggregateRecommendationCostSummary(normalizedResults) };
     } catch {
       return { status: 200, jsonBody: [] };
     }
@@ -145,6 +147,9 @@ app.http('getRecommendationById', {
     `;
     const results = await query(ctx, kql);
     if (results.length === 0) return { status: 404, jsonBody: { error: 'Not found' } };
-    return { status: 200, jsonBody: results[0] };
+    return {
+      status: 200,
+      jsonBody: normalizeRecommendationCostFields(results[0] as Record<string, unknown> & { AdditionalInfo?: Record<string, unknown> | null }),
+    };
   },
 });

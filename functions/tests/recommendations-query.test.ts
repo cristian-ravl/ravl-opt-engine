@@ -41,9 +41,11 @@ describe('recommendations query builders', () => {
     expect(kql).toContain('SubscriptionId == "sub-123"');
     expect(kql).toContain('ResourceGroup =~ "rg-app"');
     expect(kql).toContain('| join kind=leftanti (');
+    expect(kql).toContain('SuppressionJoinInstanceId = tolower(InstanceId)');
     expect(kql).toContain('LegacyRecommenderId = case(');
     expect(kql).toContain('RecommendationSubType startswith "Advisor"');
     expect(kql).toContain('ImpactSort = case(Impact == "High", 0, Impact == "Medium", 1, 2)');
+    expect(kql).toContain('| order by ImpactSort asc, FitScore desc, GeneratedDate desc');
     expect(kql).toContain('| where RowNum > 50');
     expect(kql).toContain('| take 25');
   });

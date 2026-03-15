@@ -1,0 +1,97 @@
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.dashboard__statusRow {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.dashboard__actions {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+.dashboard__mutedText {
+  color: #616161;
+}
+
+.dashboard__infoText {
+  color: #0f6cbd;
+}
+
+.dashboard__metricGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.dashboard__impactHeader {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.dashboard__sectionTitle {
+  margin-bottom: 12px;
+  display: block;
+}
+
+.dashboard__topGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.dashboard__opportunityGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.dashboard__opportunityBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 16px 16px;
+}
+
+.dashboard__opportunityMetric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dashboard__categoryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.dashboard__inventoryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.dashboard__detailLine {
+  display: block;
+  margin-top: 4px;
+}
+
+.dashboard__savingsValue {
+  color: #107c10;
+}
+
+@media (max-width: 720px) {
+  .dashboard__actions {
+    margin-left: 0;
+    width: 100%;
+    flex-wrap: wrap;
+  }
+}

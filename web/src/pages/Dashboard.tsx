@@ -2,8 +2,21 @@ import { useEffect, useRef, useState } from 'react';
 import { Badge, Button, Card, CardHeader, Spinner, Text } from '@fluentui/react-components';
 import { ArrowSyncRegular } from '@fluentui/react-icons';
 import { useAsync } from '../hooks/useAsync';
-import { getCostSummary, getOrchestrationStatus, getRecommendationsSummary, getStatus, startCollection, startRecommendation } from '../services/api';
-import type { CostSummaryRow, RecommendationSummaryRow } from '../services/api';
+import {
+  getCostSummary,
+  getOrchestrationStatus,
+  getRecommendationCost30d,
+  getRecommendationCurrency,
+  getRecommendationGeneratorLabel,
+  getRecommendationMonthlySavings,
+  getRecommendations,
+  getRecommendationsSummary,
+  getStatus,
+  startCollection,
+  startRecommendation,
+} from '../services/api';
+import type { CostSummaryRow, RecommendationRecord, RecommendationSummaryRow } from '../services/api';
+import './Dashboard.css';
 
 const IMPACT_COLORS: Record<string, 'danger' | 'warning' | 'informative'> = {
   High: 'danger',
@@ -24,10 +37,21 @@ function formatCurrency(value: number) {
   return value.toLocaleString(undefined, { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function formatCurrencyForRecommendation(value: number, currency: string) {
+  return value.toLocaleString(undefined, { style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function getResourceDisplayName(recommendation: RecommendationRecord): string {
+  if (recommendation.InstanceName?.trim()) return recommendation.InstanceName;
+  const segments = recommendation.InstanceId?.split('/').filter(Boolean) ?? [];
+  return segments.length > 0 ? segments[segments.length - 1] : recommendation.InstanceId || 'Unnamed resource';
+}
+
 export function DashboardPage() {
   const status = useAsync(() => getStatus(), []);
   const summary = useAsync(() => getRecommendationsSummary(), []);
   const costSummary = useAsync(() => getCostSummary(), []);
+  const topRecommendations = useAsync(() => getRecommendations({ limit: 6, includeSuppressed: false }), []);
   const [isCollectionRunning, setIsCollectionRunning] = useState(false);
   const [isRecommendationRunning, setIsRecommendationRunning] = useState(false);
   const [collectionStatusMessage, setCollectionStatusMessage] = useState<string | null>(null);
@@ -92,6 +116,10 @@ export function DashboardPage() {
   const topRecommenders = Object.entries(byRecommender)
     .sort((left, right) => right[1] - left[1])
     .slice(0, 6);
+
+  const topOpportunities = (topRecommendations.data?.data ?? []).filter((recommendation) => {
+    return getRecommendationCost30d(recommendation) > 0 || getRecommendationMonthlySavings(recommendation) > 0;
+  });
 
   const refreshAll = () => {
     status.refresh();
@@ -245,24 +273,24 @@ export function DashboardPage() {
     }
   };
 
-  if (status.loading || summary.loading || costSummary.loading) {
+  if (status.loading || summary.loading || costSummary.loading || (topRecommendations.loading && !topRecommendations.data)) {
     return <Spinner label="Loading dashboard..." />;
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+    <div className="dashboard">
+      <div className="dashboard__statusRow">
         <Badge appearance="filled" color={status.data?.status === 'healthy' ? 'success' : 'warning'} size="large">
           {status.data?.status ?? 'unknown'}
         </Badge>
         <Text>v{status.data?.version}</Text>
-        <Text size={200} style={{ color: '#666' }}>
+        <Text size={200} className="dashboard__mutedText">
           Last collection: {status.data?.lastCollectionRun ?? 'never'}
         </Text>
-        <Text size={200} style={{ color: '#666' }}>
+        <Text size={200} className="dashboard__mutedText">
           Last recommendations: {status.data?.lastRecommendationRun ?? 'never'}
         </Text>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+        <div className="dashboard__actions">
           <Button icon={<ArrowSyncRegular />} appearance="subtle" onClick={handleRunCollection} disabled={isCollectionRunning}>
             {isCollectionRunning ? 'Running collection…' : 'Run collection'}
           </Button>
@@ -273,20 +301,20 @@ export function DashboardPage() {
       </div>
 
       {collectionStatusMessage && (
-        <Text size={200} style={{ color: '#0f6cbd' }}>
+        <Text size={200} className="dashboard__infoText">
           {collectionStatusMessage}
         </Text>
       )}
       {recommendationStatusMessage && (
-        <Text size={200} style={{ color: '#0f6cbd' }}>
+        <Text size={200} className="dashboard__infoText">
           {recommendationStatusMessage}
         </Text>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
+      <div className="dashboard__metricGrid">
         <Card>
           <CardHeader
-            header={<Text weight="semibold">Monthly cost (30d)</Text>}
+            header={<Text weight="semibold">Current resource cost (30d)</Text>}
             description={
               <Text size={800} weight="bold">
                 {formatCurrency(totalCost30d)}
@@ -296,9 +324,9 @@ export function DashboardPage() {
         </Card>
         <Card>
           <CardHeader
-            header={<Text weight="semibold">Potential monthly savings</Text>}
+            header={<Text weight="semibold">Expected monthly savings</Text>}
             description={
-              <Text size={800} weight="bold" style={{ color: totalMonthlySavings > 0 ? '#107c10' : undefined }}>
+              <Text size={800} weight="bold" className={totalMonthlySavings > 0 ? 'dashboard__savingsValue' : undefined}>
                 {formatCurrency(totalMonthlySavings)}
               </Text>
             }
@@ -306,9 +334,9 @@ export function DashboardPage() {
         </Card>
         <Card>
           <CardHeader
-            header={<Text weight="semibold">Potential annual savings</Text>}
+            header={<Text weight="semibold">Expected annual savings</Text>}
             description={
-              <Text size={800} weight="bold" style={{ color: totalAnnualSavings > 0 ? '#107c10' : undefined }}>
+              <Text size={800} weight="bold" className={totalAnnualSavings > 0 ? 'dashboard__savingsValue' : undefined}>
                 {formatCurrency(totalAnnualSavings)}
               </Text>
             }
@@ -316,7 +344,7 @@ export function DashboardPage() {
         </Card>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
+      <div className="dashboard__metricGrid">
         <Card>
           <CardHeader
             header={<Text weight="semibold">Total recommendations</Text>}
@@ -337,7 +365,7 @@ export function DashboardPage() {
             <Card key={impact}>
               <CardHeader
                 header={
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <div className="dashboard__impactHeader">
                     <Badge color={IMPACT_COLORS[impact] ?? 'informative'}>{impact}</Badge>
                     <Text weight="semibold">impact</Text>
                   </div>
@@ -354,10 +382,10 @@ export function DashboardPage() {
 
       {topRecommenders.length > 0 && (
         <div>
-          <Text weight="semibold" size={500} style={{ marginBottom: 12, display: 'block' }}>
+          <Text weight="semibold" size={500} className="dashboard__sectionTitle">
             Top recommendation functions
           </Text>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+          <div className="dashboard__topGrid">
             {topRecommenders.map(([recommender, count]) => (
               <Card key={recommender}>
                 <CardHeader
@@ -370,11 +398,53 @@ export function DashboardPage() {
         </div>
       )}
 
+      {topOpportunities.length > 0 && (
+        <div>
+          <Text weight="semibold" size={500} className="dashboard__sectionTitle">
+            Top savings opportunities
+          </Text>
+          <div className="dashboard__opportunityGrid">
+            {topOpportunities.map((recommendation) => {
+              const currentCost = getRecommendationCost30d(recommendation);
+              const monthlySavings = getRecommendationMonthlySavings(recommendation);
+              const currency = getRecommendationCurrency(recommendation);
+
+              return (
+                <Card key={recommendation.RecommendationId}>
+                  <CardHeader
+                    header={<Text weight="semibold">{getResourceDisplayName(recommendation)}</Text>}
+                    description={<Text size={200}>{recommendation.RecommendationSubType}</Text>}
+                  />
+                  <div className="dashboard__opportunityBody">
+                    <div className="dashboard__opportunityMetric">
+                      <Text size={200} className="dashboard__mutedText">Current cost (30d)</Text>
+                      <Text weight="semibold">{currentCost > 0 ? formatCurrencyForRecommendation(currentCost, currency) : '—'}</Text>
+                    </div>
+                    <div className="dashboard__opportunityMetric">
+                      <Text size={200} className="dashboard__mutedText">Expected savings / month</Text>
+                      <Text weight="semibold" className={monthlySavings > 0 ? 'dashboard__savingsValue' : undefined}>
+                        {monthlySavings > 0 ? formatCurrencyForRecommendation(monthlySavings, currency) : '—'}
+                      </Text>
+                    </div>
+                    <Text size={200} className="dashboard__mutedText">
+                      {recommendation.SubscriptionName || recommendation.SubscriptionId || 'No subscription context'}
+                    </Text>
+                    <Text size={200} className="dashboard__mutedText">
+                      {getRecommendationGeneratorLabel(recommendation)}
+                    </Text>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div>
-        <Text weight="semibold" size={500} style={{ marginBottom: 12, display: 'block' }}>
+        <Text weight="semibold" size={500} className="dashboard__sectionTitle">
           By category
         </Text>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+        <div className="dashboard__categoryGrid">
           {Object.entries(byCategory).map(([category, count]) => {
             const catCost = costByCategory[category];
             return (
@@ -384,8 +454,13 @@ export function DashboardPage() {
                   description={
                     <div>
                       <Text size={600}>{count} recommendations</Text>
+                      {catCost && catCost.cost > 0 && (
+                        <Text size={200} className="dashboard__mutedText dashboard__detailLine">
+                          Current cost: {formatCurrency(catCost.cost)}/30d
+                        </Text>
+                      )}
                       {catCost && catCost.savings > 0 && (
-                        <Text size={200} style={{ display: 'block', color: '#107c10', marginTop: 4 }}>
+                        <Text size={200} className="dashboard__detailLine dashboard__savingsValue">
                           Savings: {formatCurrency(catCost.savings)}/mo
                         </Text>
                       )}
@@ -400,10 +475,10 @@ export function DashboardPage() {
 
       {status.data?.tableCounts && Object.keys(status.data.tableCounts).length > 0 && (
         <div>
-          <Text weight="semibold" size={500} style={{ marginBottom: 12, display: 'block' }}>
+          <Text weight="semibold" size={500} className="dashboard__sectionTitle">
             Data inventory
           </Text>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
+          <div className="dashboard__inventoryGrid">
             {Object.entries(status.data.tableCounts).map(([table, count]) => (
               <Card key={table} size="small">
                 <CardHeader header={<Text size={300}>{table}</Text>} description={<Text weight="semibold">{(count as number).toLocaleString()} records</Text>} />

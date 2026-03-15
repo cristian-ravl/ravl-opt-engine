@@ -211,6 +211,8 @@ Set these app settings when you want to ingest reservations prices, reservations
 | GET    | `/api/recommendations`              | List recommendations with filters   |
 | GET    | `/api/recommendations/summary`      | Aggregate counts by category/impact |
 | GET    | `/api/recommendations/:id`          | Single recommendation detail        |
+| GET    | `/api/data-explorer/tables`         | List ADX tables and materialized views exposed in the dashboard |
+| GET    | `/api/data-explorer/tables/:name`   | Page through rows from one ADX table or materialized view |
 | GET    | `/api/suppressions`                 | List active suppressions            |
 | POST   | `/api/suppressions`                 | Create suppression                  |
 | PUT    | `/api/suppressions/:id`             | Update suppression                  |
@@ -223,6 +225,8 @@ Set these app settings when you want to ingest reservations prices, reservations
 | POST   | `/api/orchestrators/recommendation` | Start recommendation run            |
 
 `GET /api/recommendations` supports filtering by `cloud`, `category`, `impact`, `subType`, `recommenderId`, `subscriptionId`, `resourceGroup`, `limit`, `offset`, and `includeSuppressed`.
+
+Suppression notes: `Snooze` suppressions require a future `filterEndDate`, and suppression evaluation always uses the latest version of a `filterId`.
 
 ## Deployment
 
