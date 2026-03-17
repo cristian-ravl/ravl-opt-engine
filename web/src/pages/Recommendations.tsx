@@ -19,6 +19,7 @@ import {
   Text,
 } from '@fluentui/react-components';
 import { ArrowSyncRegular, DismissRegular, FilterRegular } from '@fluentui/react-icons';
+import { PageHeader } from '../components/PageHeader';
 import { useAsync } from '../hooks/useAsync';
 import {
   createSuppression,
@@ -32,6 +33,7 @@ import {
   getRecommendations,
 } from '../services/api';
 import type { ProviderDefinition, RecommendationFilters, RecommendationRecord } from '../services/api';
+import { formatDateTimeWithRelative, titleCase } from '../utils/format';
 import './Recommendations.css';
 
 const DEFAULT_PAGE_SIZE = 50;
@@ -96,6 +98,14 @@ function getRecommenders(providers: ProviderDefinition[] | undefined) {
   return [...uniqueRecommenders.values()].sort((left, right) => left.name.localeCompare(right.name));
 }
 
+function getRecommenderLabel(recommenderId: string | undefined, recommenderOptions: Array<{ id: string; name: string }>): string {
+  if (!recommenderId) {
+    return 'All functions';
+  }
+
+  return recommenderOptions.find((recommender) => recommender.id === recommenderId)?.name ?? recommenderId;
+}
+
 export function RecommendationsPage() {
   const [filters, setFilters] = useState<RecommendationFilters>({ limit: DEFAULT_PAGE_SIZE, offset: 0, includeSuppressed: false });
   const [searchText, setSearchText] = useState('');
@@ -156,6 +166,14 @@ export function RecommendationsPage() {
   const currentPageSize = filters.limit ?? DEFAULT_PAGE_SIZE;
   const pageStart = (filters.offset ?? 0) + 1;
   const pageEnd = Math.min((filters.offset ?? 0) + currentPageSize, recs.data?.total ?? 0);
+  const activeFilterCount = [
+    searchText.trim(),
+    filters.cloud,
+    filters.category,
+    filters.impact,
+    filters.recommenderId,
+    filters.includeSuppressed ? 'suppressed' : undefined,
+  ].filter(Boolean).length;
 
   const renderCurrencyBreakdown = (amounts: CurrencyAmount[], options?: { emptyLabel?: string; positiveClassName?: string }) => {
     const emptyLabel = options?.emptyLabel ?? '—';
@@ -184,6 +202,20 @@ export function RecommendationsPage() {
 
   return (
     <div className="recommendations">
+      <PageHeader
+        eyebrow="Review queue"
+        title="Recommendations"
+        description="Filter the optimization backlog, review cost and impact in context, and dismiss noise without losing traceability."
+        meta={
+          <>
+            <Text size={200} className="recommendations__helperText">{recs.data?.total?.toLocaleString() ?? '0'} recommendations in the current result set</Text>
+            <Text size={200} className="recommendations__helperText">
+              {activeFilterCount > 0 ? `${activeFilterCount} active filters` : 'No active filters'}
+            </Text>
+          </>
+        }
+      />
+
       <div className="recommendations__summaryGrid">
         <Card size="small">
           <CardHeader
@@ -214,25 +246,29 @@ export function RecommendationsPage() {
       <Card>
         <CardHeader
           header={<Text weight="semibold">Filter recommendations</Text>}
-          description={<Text size={200}>Narrow the list without turning the page into a tiny Tetris board.</Text>}
+          description={<Text size={200}>Use cloud, category, impact, and function filters to narrow the full result set. The search box refines only the current page.</Text>}
         />
         <div className="recommendations__filtersGrid">
           <div className="recommendations__field recommendations__field--search">
             <Text size={200} className="recommendations__fieldLabel">
-            Search
-          </Text>
-            <Input className="recommendations__searchInput" placeholder="Search recommendations..." value={searchText} onChange={(_, data) => setSearchText(data.value)} />
+              Search this page
+            </Text>
+            <Input className="recommendations__searchInput" placeholder="Search visible recommendations..." value={searchText} onChange={(_, data) => setSearchText(data.value)} />
           </div>
 
           <div className="recommendations__field">
             <Text size={200} className="recommendations__fieldLabel">
-            Cloud
-          </Text>
+              Cloud
+            </Text>
             <Dropdown
               placeholder="All clouds"
+              value={filters.cloud ?? 'All clouds'}
               selectedOptions={filters.cloud ? [filters.cloud] : []}
-              onOptionSelect={(_, data) => setFilters((current) => ({ ...current, cloud: data.optionValue || undefined, offset: 0 }))}
+              onOptionSelect={(_, data) => setFilters((current) => ({ ...current, cloud: data.optionValue === '__all' ? undefined : data.optionValue, offset: 0 }))}
             >
+              <Option value="__all" text="All clouds">
+                All clouds
+              </Option>
               <Option value="Azure" text="Azure">
                 Azure
               </Option>
@@ -247,13 +283,17 @@ export function RecommendationsPage() {
 
           <div className="recommendations__field">
             <Text size={200} className="recommendations__fieldLabel">
-            Category
-          </Text>
+              Category
+            </Text>
             <Dropdown
               placeholder="All categories"
+              value={filters.category ? CATEGORY_LABELS[filters.category] ?? filters.category : 'All categories'}
               selectedOptions={filters.category ? [filters.category] : []}
-              onOptionSelect={(_, data) => setFilters((current) => ({ ...current, category: data.optionValue || undefined, offset: 0 }))}
+              onOptionSelect={(_, data) => setFilters((current) => ({ ...current, category: data.optionValue === '__all' ? undefined : data.optionValue, offset: 0 }))}
             >
+              <Option value="__all" text="All categories">
+                All categories
+              </Option>
               {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
                 <Option key={value} value={value} text={label}>
                   {label}
@@ -264,13 +304,17 @@ export function RecommendationsPage() {
 
           <div className="recommendations__field">
             <Text size={200} className="recommendations__fieldLabel">
-            Impact
-          </Text>
+              Impact
+            </Text>
             <Dropdown
               placeholder="All impacts"
+              value={filters.impact ?? 'All impacts'}
               selectedOptions={filters.impact ? [filters.impact] : []}
-              onOptionSelect={(_, data) => setFilters((current) => ({ ...current, impact: data.optionValue || undefined, offset: 0 }))}
+              onOptionSelect={(_, data) => setFilters((current) => ({ ...current, impact: data.optionValue === '__all' ? undefined : data.optionValue, offset: 0 }))}
             >
+              <Option value="__all" text="All impacts">
+                All impacts
+              </Option>
               <Option value="High" text="High">
                 High
               </Option>
@@ -285,13 +329,17 @@ export function RecommendationsPage() {
 
           <div className="recommendations__field">
             <Text size={200} className="recommendations__fieldLabel">
-            Recommendation function
-          </Text>
+              Recommendation function
+            </Text>
             <Dropdown
               placeholder={providers.loading ? 'Loading functions...' : 'All functions'}
+              value={providers.loading ? 'Loading functions...' : getRecommenderLabel(filters.recommenderId, recommenderOptions)}
               selectedOptions={filters.recommenderId ? [filters.recommenderId] : []}
-              onOptionSelect={(_, data) => setFilters((current) => ({ ...current, recommenderId: data.optionValue || undefined, offset: 0 }))}
+              onOptionSelect={(_, data) => setFilters((current) => ({ ...current, recommenderId: data.optionValue === '__all' ? undefined : data.optionValue, offset: 0 }))}
             >
+              <Option value="__all" text="All functions">
+                All functions
+              </Option>
               {recommenderOptions.map((recommender) => (
                 <Option key={recommender.id} value={recommender.id} text={recommender.name}>
                   {recommender.name}
@@ -302,9 +350,10 @@ export function RecommendationsPage() {
 
           <div className="recommendations__field">
             <Text size={200} className="recommendations__fieldLabel">
-            Page size
-          </Text>
+              Page size
+            </Text>
             <Dropdown
+              value={String(currentPageSize)}
               selectedOptions={[String(currentPageSize)]}
               onOptionSelect={(_, data) => setFilters((current) => ({ ...current, limit: Number(data.optionValue ?? DEFAULT_PAGE_SIZE), offset: 0 }))}
             >
@@ -317,10 +366,10 @@ export function RecommendationsPage() {
           </div>
 
           <div className="recommendations__field recommendations__field--switch">
-            <Text size={200} className="recommendations__fieldLabel">Suppressed recommendations</Text>
+            <Text size={200} className="recommendations__fieldLabel">Include suppressed recommendations</Text>
             <Switch
               checked={filters.includeSuppressed ?? false}
-              label={filters.includeSuppressed ? 'Shown' : 'Hidden'}
+              label={filters.includeSuppressed ? 'Included' : 'Hidden'}
               onChange={(_, data) => setFilters((current) => ({ ...current, includeSuppressed: data.checked, offset: 0 }))}
             />
           </div>
@@ -333,11 +382,15 @@ export function RecommendationsPage() {
               Clear filters
             </Button>
           </div>
+
+          <Text size={200} className="recommendations__helperText recommendations__filtersFooter">
+            Page search narrows only the currently loaded recommendations. Cloud, category, impact, and function filters query the full result set.
+          </Text>
         </div>
       </Card>
 
       <Text size={300} className="recommendations__resultsText">
-        {recs.data ? `${filteredData.length} visible on this page, ${recs.data.total} total recommendations in the current result set` : ''}
+        {recs.data ? `Showing ${filteredData.length} recommendations on this page (${pageStart}–${pageEnd} of ${recs.data.total.toLocaleString()})` : ''}
       </Text>
 
       {recs.loading ? (
@@ -385,6 +438,9 @@ export function RecommendationsPage() {
                         {recommendation.SubscriptionName || recommendation.SubscriptionId || 'No subscription context'}
                         {recommendation.ResourceGroup ? ` • ${recommendation.ResourceGroup}` : ''}
                       </Text>
+                      <Text size={200} className="recommendations__mutedText">
+                        Generated {formatDateTimeWithRelative(recommendation.GeneratedDate)}
+                      </Text>
                     </div>
 
                     <div className="recommendations__itemActions">
@@ -396,14 +452,14 @@ export function RecommendationsPage() {
                       <Dialog>
                         <DialogTrigger disableButtonEnhancement>
                           <Button icon={<DismissRegular />} appearance="subtle" size="small" title="Suppress">
-                            Suppress
+                            Dismiss
                           </Button>
                         </DialogTrigger>
                         <DialogSurface>
-                          <DialogTitle>Suppress recommendation</DialogTitle>
+                          <DialogTitle>Dismiss recommendation</DialogTitle>
                           <DialogBody>
                             <Text>
-                              Dismiss "{recommendation.RecommendationSubType}" for {getResourceDisplayName(recommendation)}?
+                              Hide "{titleCase(recommendation.RecommendationSubType)}" for {getResourceDisplayName(recommendation)} by creating a dismissal suppression?
                             </Text>
                           </DialogBody>
                           <DialogActions>
@@ -421,16 +477,16 @@ export function RecommendationsPage() {
 
                   <div className="recommendations__itemBody">
                     <div className="recommendations__contentBlock">
-                      <Text size={200} weight="semibold">{recommendation.RecommendationSubType}</Text>
+                      <Text size={200} weight="semibold">{titleCase(recommendation.RecommendationSubType)}</Text>
                       <Text size={200} className="recommendations__mutedText">
-                        {recommendation.RecommendationType} • {getRecommendationGeneratorLabel(recommendation)}
+                        {titleCase(recommendation.RecommendationType)} • {getRecommendationGeneratorLabel(recommendation)}
                       </Text>
                     </div>
 
                     <div className="recommendations__contentBlock">
                       <Text>{recommendation.RecommendationDescription}</Text>
                       <Text size={200} className="recommendations__mutedText">
-                        Action: {recommendation.RecommendationAction}
+                        Recommended action: {recommendation.RecommendationAction}
                       </Text>
                     </div>
 
@@ -451,7 +507,7 @@ export function RecommendationsPage() {
                       </div>
                       <div className="recommendations__metricCard">
                         <Text size={200} className="recommendations__mutedText">Fit score</Text>
-                        <Text weight="semibold">{recommendation.FitScore}</Text>
+                        <Text weight="semibold">{recommendation.FitScore}/5</Text>
                       </div>
                     </div>
                   </div>

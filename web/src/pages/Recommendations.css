@@ -65,8 +65,16 @@
   color: #616161;
 }
 
+.recommendations__helperText {
+  color: #4a5565;
+}
+
 .recommendations__errorText {
   color: #d13438;
+}
+
+.recommendations__filtersFooter {
+  grid-column: 1 / -1;
 }
 
 .recommendations__list {

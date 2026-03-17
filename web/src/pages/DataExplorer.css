@@ -4,6 +4,10 @@
   gap: 16px;
 }
 
+.dataExplorer__helperText {
+  color: #4a5565;
+}
+
 .dataExplorer__summaryGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -58,6 +62,14 @@
   padding: 0 16px 16px;
 }
 
+.dataExplorer__schemaToolbar {
+  padding: 0 16px 12px;
+}
+
+.dataExplorer__schemaToggle {
+  max-width: 100%;
+}
+
 .dataExplorer__workspaceGrid {
   display: grid;
   grid-template-columns: minmax(0, 2.25fr) minmax(320px, 1fr);
@@ -68,6 +80,11 @@
 .dataExplorer__tableCard,
 .dataExplorer__detailsCard {
   min-width: 0;
+}
+
+.dataExplorer__detailsCard {
+  position: sticky;
+  top: 104px;
 }
 
 .dataExplorer__tableScroll {
@@ -201,6 +218,10 @@
 @media (max-width: 960px) {
   .dataExplorer__workspaceGrid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dataExplorer__detailsCard {
+    position: static;
   }
 
   .dataExplorer__field--wide {

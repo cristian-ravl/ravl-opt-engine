@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import {
   Badge,
   Button,
+  Card,
+  CardHeader,
   Dialog,
   DialogActions,
   DialogBody,
@@ -22,9 +24,12 @@ import {
   Textarea,
 } from '@fluentui/react-components';
 import { AddRegular, DeleteRegular, EditRegular, ArrowSyncRegular } from '@fluentui/react-icons';
+import { PageHeader } from '../components/PageHeader';
 import { useAsync } from '../hooks/useAsync';
 import { createSuppression, deleteSuppression, getSuppressions, updateSuppression } from '../services/api';
 import type { Suppression } from '../services/api';
+import { formatDateTimeWithRelative } from '../utils/format';
+import './Suppressions.css';
 
 const FILTER_TYPE_COLORS: Record<string, 'informative' | 'warning' | 'danger'> = {
   Dismiss: 'informative',
@@ -114,6 +119,7 @@ export function SuppressionsPage() {
   const [editDraft, setEditDraft] = useState<SuppressionDraft>(EMPTY_DRAFT);
   const [editError, setEditError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [suppressionToDelete, setSuppressionToDelete] = useState<Suppression | null>(null);
 
   const sortedSuppressions = useMemo(
     () =>
@@ -174,35 +180,57 @@ export function SuppressionsPage() {
     try {
       setActionError(null);
       await deleteSuppression(filterId);
+      setSuppressionToDelete(null);
       suppressions.refresh();
     } catch (error) {
       setActionError(error instanceof Error ? error.message : String(error));
     }
   };
 
+  const dismissCount = sortedSuppressions.filter((suppression) => suppression.filterType === 'Dismiss').length;
+  const snoozeCount = sortedSuppressions.filter((suppression) => suppression.filterType === 'Snooze').length;
+  const excludeCount = sortedSuppressions.filter((suppression) => suppression.filterType === 'Exclude').length;
+
   if (suppressions.loading) {
     return <Spinner label="Loading suppressions..." />;
   }
 
   if (suppressions.error) {
-    return <Text style={{ color: 'red' }}>Error loading suppressions: {suppressions.error.message}</Text>;
+    return <Text className="suppressionsPage__errorText">Error loading suppressions: {suppressions.error.message}</Text>;
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-        <Button icon={<AddRegular />} appearance="primary" onClick={() => setIsCreateDialogOpen(true)}>
-          New suppression
-        </Button>
-        <Button icon={<ArrowSyncRegular />} appearance="secondary" onClick={() => suppressions.refresh()}>
-          Refresh
-        </Button>
-        <Text size={200} style={{ color: '#666' }}>
-          {sortedSuppressions.length} active suppressions
-        </Text>
+    <div className="suppressionsPage">
+      <PageHeader
+        eyebrow="Governance"
+        title="Suppressions"
+        description="Manage dismissals, snoozes, and exclusions so the review queue stays useful without losing the audit trail behind each decision."
+        meta={<Text size={200} className="suppressionsPage__mutedText">{sortedSuppressions.length} active suppressions</Text>}
+        actions={
+          <>
+            <Button icon={<AddRegular />} appearance="primary" onClick={() => setIsCreateDialogOpen(true)}>
+              New suppression
+            </Button>
+            <Button icon={<ArrowSyncRegular />} appearance="secondary" onClick={() => suppressions.refresh()}>
+              Refresh
+            </Button>
+          </>
+        }
+      />
+
+      <div className="suppressionsPage__summaryGrid">
+        <Card size="small">
+          <CardHeader header={<Text weight="semibold">Dismissed</Text>} description={<Text size={700}>{dismissCount}</Text>} />
+        </Card>
+        <Card size="small">
+          <CardHeader header={<Text weight="semibold">Snoozed</Text>} description={<Text size={700}>{snoozeCount}</Text>} />
+        </Card>
+        <Card size="small">
+          <CardHeader header={<Text weight="semibold">Excluded</Text>} description={<Text size={700}>{excludeCount}</Text>} />
+        </Card>
       </div>
 
-      {actionError && <Text style={{ color: 'red' }}>{actionError}</Text>}
+      {actionError && <Text className="suppressionsPage__errorText">{actionError}</Text>}
 
       <Dialog
         open={isCreateDialogOpen}
@@ -218,24 +246,25 @@ export function SuppressionsPage() {
           <DialogBody>
             <DialogTitle>Create suppression</DialogTitle>
             <DialogContent>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div>
-                  <Text size={200} style={{ display: 'block', marginBottom: 4 }}>
+              <div className="suppressionsPage__formGrid">
+                <div className="suppressionsPage__fieldGroup">
+                  <Text size={200} className="suppressionsPage__fieldLabel">
                     Recommendation subtype ID *
                   </Text>
                   <Input
                     value={createDraft.recommendationSubTypeId}
                     onChange={(_, data) => setCreateDraft((current) => ({ ...current, recommendationSubTypeId: data.value }))}
                     placeholder="GUID of the recommendation subtype"
-                    style={{ width: '100%' }}
+                    className="suppressionsPage__input"
                   />
                 </div>
 
-                <div>
-                  <Text size={200} style={{ display: 'block', marginBottom: 4 }}>
+                <div className="suppressionsPage__fieldGroup">
+                  <Text size={200} className="suppressionsPage__fieldLabel">
                     Filter type
                   </Text>
                   <Dropdown
+                    value={createDraft.filterType}
                     selectedOptions={[createDraft.filterType]}
                     onOptionSelect={(_, data) =>
                       setCreateDraft((current) => ({
@@ -259,44 +288,44 @@ export function SuppressionsPage() {
                 </div>
 
                 {createDraft.filterType === 'Snooze' && (
-                  <div>
-                    <Text size={200} style={{ display: 'block', marginBottom: 4 }}>
+                  <div className="suppressionsPage__fieldGroup">
+                    <Text size={200} className="suppressionsPage__fieldLabel">
                       Snooze until *
                     </Text>
                     <Input
                       type="datetime-local"
                       value={createDraft.filterEndDate}
                       onChange={(_, data) => setCreateDraft((current) => ({ ...current, filterEndDate: data.value }))}
-                      style={{ width: '100%' }}
+                      className="suppressionsPage__input"
                     />
                   </div>
                 )}
 
-                <div>
-                  <Text size={200} style={{ display: 'block', marginBottom: 4 }}>
+                <div className="suppressionsPage__fieldGroup">
+                  <Text size={200} className="suppressionsPage__fieldLabel">
                     Instance ID
                   </Text>
                   <Input
                     value={createDraft.instanceId}
                     onChange={(_, data) => setCreateDraft((current) => ({ ...current, instanceId: data.value }))}
                     placeholder="Leave empty to suppress all matching instances"
-                    style={{ width: '100%' }}
+                    className="suppressionsPage__input"
                   />
                 </div>
 
-                <div>
-                  <Text size={200} style={{ display: 'block', marginBottom: 4 }}>
+                <div className="suppressionsPage__fieldGroup">
+                  <Text size={200} className="suppressionsPage__fieldLabel">
                     Notes
                   </Text>
                   <Textarea
                     value={createDraft.notes}
                     onChange={(_, data) => setCreateDraft((current) => ({ ...current, notes: data.value }))}
                     placeholder="Why is this being suppressed?"
-                    style={{ width: '100%' }}
+                    className="suppressionsPage__input"
                   />
                 </div>
 
-                {createError && <Text style={{ color: 'red' }}>{createError}</Text>}
+                {createError && <Text className="suppressionsPage__errorText">{createError}</Text>}
               </div>
             </DialogContent>
             <DialogActions>
@@ -325,23 +354,24 @@ export function SuppressionsPage() {
           <DialogBody>
             <DialogTitle>Edit suppression</DialogTitle>
             <DialogContent>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div>
-                  <Text size={200} style={{ display: 'block', marginBottom: 4 }}>
+              <div className="suppressionsPage__formGrid">
+                <div className="suppressionsPage__fieldGroup">
+                  <Text size={200} className="suppressionsPage__fieldLabel">
                     Recommendation subtype ID *
                   </Text>
                   <Input
                     value={editDraft.recommendationSubTypeId}
                     onChange={(_, data) => setEditDraft((current) => ({ ...current, recommendationSubTypeId: data.value }))}
-                    style={{ width: '100%' }}
+                    className="suppressionsPage__input"
                   />
                 </div>
 
-                <div>
-                  <Text size={200} style={{ display: 'block', marginBottom: 4 }}>
+                <div className="suppressionsPage__fieldGroup">
+                  <Text size={200} className="suppressionsPage__fieldLabel">
                     Filter type
                   </Text>
                   <Dropdown
+                    value={editDraft.filterType}
                     selectedOptions={[editDraft.filterType]}
                     onOptionSelect={(_, data) =>
                       setEditDraft((current) => ({
@@ -365,42 +395,42 @@ export function SuppressionsPage() {
                 </div>
 
                 {editDraft.filterType === 'Snooze' && (
-                  <div>
-                    <Text size={200} style={{ display: 'block', marginBottom: 4 }}>
+                  <div className="suppressionsPage__fieldGroup">
+                    <Text size={200} className="suppressionsPage__fieldLabel">
                       Snooze until *
                     </Text>
                     <Input
                       type="datetime-local"
                       value={editDraft.filterEndDate}
                       onChange={(_, data) => setEditDraft((current) => ({ ...current, filterEndDate: data.value }))}
-                      style={{ width: '100%' }}
+                      className="suppressionsPage__input"
                     />
                   </div>
                 )}
 
-                <div>
-                  <Text size={200} style={{ display: 'block', marginBottom: 4 }}>
+                <div className="suppressionsPage__fieldGroup">
+                  <Text size={200} className="suppressionsPage__fieldLabel">
                     Instance ID
                   </Text>
                   <Input
                     value={editDraft.instanceId}
                     onChange={(_, data) => setEditDraft((current) => ({ ...current, instanceId: data.value }))}
-                    style={{ width: '100%' }}
+                    className="suppressionsPage__input"
                   />
                 </div>
 
-                <div>
-                  <Text size={200} style={{ display: 'block', marginBottom: 4 }}>
+                <div className="suppressionsPage__fieldGroup">
+                  <Text size={200} className="suppressionsPage__fieldLabel">
                     Notes
                   </Text>
                   <Textarea
                     value={editDraft.notes}
                     onChange={(_, data) => setEditDraft((current) => ({ ...current, notes: data.value }))}
-                    style={{ width: '100%' }}
+                    className="suppressionsPage__input"
                   />
                 </div>
 
-                {editError && <Text style={{ color: 'red' }}>{editError}</Text>}
+                {editError && <Text className="suppressionsPage__errorText">{editError}</Text>}
               </div>
             </DialogContent>
             <DialogActions>
@@ -415,61 +445,89 @@ export function SuppressionsPage() {
         </DialogSurface>
       </Dialog>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHeaderCell style={{ width: 100 }}>Type</TableHeaderCell>
-            <TableHeaderCell style={{ width: 300 }}>Subtype ID</TableHeaderCell>
-            <TableHeaderCell>Scope</TableHeaderCell>
-            <TableHeaderCell style={{ width: 190 }}>Created</TableHeaderCell>
-            <TableHeaderCell style={{ width: 190 }}>Ends</TableHeaderCell>
-            <TableHeaderCell>Notes</TableHeaderCell>
-            <TableHeaderCell style={{ width: 110 }}>Actions</TableHeaderCell>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {sortedSuppressions.map((suppression) => (
-            <TableRow key={suppression.filterId}>
-              <TableCell>
-                <Badge color={FILTER_TYPE_COLORS[suppression.filterType] ?? 'informative'} size="small">
-                  {suppression.filterType}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                <Text size={200} font="monospace">
-                  {suppression.recommendationSubTypeId}
-                </Text>
-              </TableCell>
-              <TableCell>
-                <Text size={200}>{suppression.instanceId ?? 'All matching instances'}</Text>
-              </TableCell>
-              <TableCell>
-                <Text size={200}>{new Date(suppression.filterStartDate).toLocaleString()}</Text>
-              </TableCell>
-              <TableCell>
-                <Text size={200}>{formatEndDate(suppression.filterEndDate)}</Text>
-              </TableCell>
-              <TableCell>
-                <Text size={200}>{suppression.notes ?? ''}</Text>
-              </TableCell>
-              <TableCell>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  <Button icon={<EditRegular />} appearance="subtle" size="small" onClick={() => handleStartEdit(suppression)} title="Edit" />
-                  <Button icon={<DeleteRegular />} appearance="subtle" size="small" onClick={() => handleDelete(suppression.filterId)} title="Delete" />
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
+      <Dialog open={suppressionToDelete !== null} onOpenChange={(_, data) => !data.open && setSuppressionToDelete(null)}>
+        <DialogSurface>
+          <DialogBody>
+            <DialogTitle>Delete suppression</DialogTitle>
+            <DialogContent>
+              <Text>
+                Remove this suppression and allow matching recommendations to appear again?
+              </Text>
+            </DialogContent>
+            <DialogActions>
+              <Button appearance="secondary" onClick={() => setSuppressionToDelete(null)}>
+                Cancel
+              </Button>
+              <Button appearance="primary" icon={<DeleteRegular />} onClick={() => suppressionToDelete && handleDelete(suppressionToDelete.filterId)}>
+                Delete suppression
+              </Button>
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
 
-          {sortedSuppressions.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={7}>
-                <Text style={{ color: '#666', fontStyle: 'italic' }}>No active suppressions</Text>
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
+      <Card>
+        <CardHeader
+          header={<Text weight="semibold">Active suppressions</Text>}
+          description={<Text size={200}>Suppressions remain auditable and can target one instance or every matching instance.</Text>}
+        />
+
+        {sortedSuppressions.length === 0 ? (
+          <div className="suppressionsPage__emptyState">
+            <Text className="suppressionsPage__mutedText">No active suppressions yet. Create one when you need to dismiss, snooze, or exclude noisy recommendations.</Text>
+          </div>
+        ) : (
+          <div className="suppressionsPage__tableWrap">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHeaderCell>Type</TableHeaderCell>
+                  <TableHeaderCell>Subtype ID</TableHeaderCell>
+                  <TableHeaderCell>Scope</TableHeaderCell>
+                  <TableHeaderCell>Created</TableHeaderCell>
+                  <TableHeaderCell>Ends</TableHeaderCell>
+                  <TableHeaderCell>Notes</TableHeaderCell>
+                  <TableHeaderCell>Actions</TableHeaderCell>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sortedSuppressions.map((suppression) => (
+                  <TableRow key={suppression.filterId}>
+                    <TableCell>
+                      <Badge color={FILTER_TYPE_COLORS[suppression.filterType] ?? 'informative'} size="small">
+                        {suppression.filterType}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Text size={200} font="monospace">
+                        {suppression.recommendationSubTypeId}
+                      </Text>
+                    </TableCell>
+                    <TableCell>
+                      <Text size={200}>{suppression.instanceId ?? 'All matching instances'}</Text>
+                    </TableCell>
+                    <TableCell>
+                      <Text size={200}>{formatDateTimeWithRelative(suppression.filterStartDate)}</Text>
+                    </TableCell>
+                    <TableCell>
+                      <Text size={200}>{suppression.filterEndDate ? formatDateTimeWithRelative(suppression.filterEndDate) : formatEndDate(suppression.filterEndDate)}</Text>
+                    </TableCell>
+                    <TableCell>
+                      <Text size={200}>{suppression.notes ?? '—'}</Text>
+                    </TableCell>
+                    <TableCell>
+                      <div className="suppressionsPage__rowActions">
+                        <Button icon={<EditRegular />} appearance="subtle" size="small" onClick={() => handleStartEdit(suppression)} title="Edit suppression" />
+                        <Button icon={<DeleteRegular />} appearance="subtle" size="small" onClick={() => setSuppressionToDelete(suppression)} title="Delete suppression" />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </Card>
     </div>
   );
 }

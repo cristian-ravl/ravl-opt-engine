@@ -202,6 +202,14 @@ function parseAdditionalInfo(value: RecommendationRecord['AdditionalInfo']): Rec
   return typeof value === 'object' && !Array.isArray(value) ? value : null;
 }
 
+function normalizeUsageUnit(unit: string | null): string | null {
+  if (!unit) {
+    return null;
+  }
+
+  return unit.replace(/^1\s+/, '').trim();
+}
+
 export async function getRecommendations(filters: RecommendationFilters = {}): Promise<PaginatedResponse<RecommendationRecord>> {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(filters)) {
@@ -329,14 +337,14 @@ export function getRecommendationUsageDisplay(recommendation: Pick<Recommendatio
   }
 
   const unit = typeof additionalInfo?.usageUnitOfMeasure === 'string' && additionalInfo.usageUnitOfMeasure.trim()
-    ? additionalInfo.usageUnitOfMeasure.trim()
+    ? normalizeUsageUnit(additionalInfo.usageUnitOfMeasure.trim())
     : null;
   const meterCount = getAdditionalInfoNumber(recommendation, ['usageMeterCount']);
   const unitCount = getAdditionalInfoNumber(recommendation, ['usageUnitOfMeasureCount']);
   const formattedQuantity = quantity.toLocaleString(undefined, { maximumFractionDigits: quantity >= 100 ? 0 : 2 });
 
   if (unit && unitCount <= 1) {
-    return `${formattedQuantity} ${unit}`;
+    return /^\d/.test(unit) ? `${formattedQuantity} × ${unit}` : `${formattedQuantity} ${unit}`;
   }
 
   if (meterCount > 1) {

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Badge, Button, Card, CardHeader, Spinner, Text } from '@fluentui/react-components';
 import { ArrowSyncRegular } from '@fluentui/react-icons';
+import { PageHeader } from '../components/PageHeader';
 import { useAsync } from '../hooks/useAsync';
 import {
   getCostSummary,
@@ -16,6 +17,7 @@ import {
   startRecommendation,
 } from '../services/api';
 import type { CostSummaryRow, RecommendationRecord, RecommendationSummaryRow } from '../services/api';
+import { formatDateTimeWithRelative, titleCase } from '../utils/format';
 import './Dashboard.css';
 
 type CurrencyAmount = {
@@ -174,10 +176,6 @@ export function DashboardPage() {
     .sort((left, right) => right[1] - left[1])
     .slice(0, 6);
 
-  const topOpportunities = (topRecommendations.data?.data ?? []).filter((recommendation) => {
-    return getRecommendationCost30d(recommendation) > 0 || getRecommendationMonthlySavings(recommendation) > 0;
-  });
-
   const renderCurrencyBreakdown = (amounts: CurrencyAmount[], options?: { emptyLabel?: string; emphasizeSavings?: boolean }) => {
     const emptyLabel = options?.emptyLabel ?? '—';
 
@@ -198,6 +196,7 @@ export function DashboardPage() {
     status.refresh();
     summary.refresh();
     costSummary.refresh();
+    topRecommendations.refresh();
   };
 
   const handleRunCollection = async () => {
@@ -350,28 +349,52 @@ export function DashboardPage() {
     return <Spinner label="Loading dashboard..." />;
   }
 
+  const savingsOpportunities = [...(topRecommendations.data?.data ?? [])]
+    .filter((recommendation) => getRecommendationMonthlySavings(recommendation) > 0)
+    .sort((left, right) => getRecommendationMonthlySavings(right) - getRecommendationMonthlySavings(left))
+    .slice(0, 4);
+
+  const highCostReviewQueue = [...(topRecommendations.data?.data ?? [])]
+    .filter((recommendation) => getRecommendationCost30d(recommendation) > 0)
+    .sort((left, right) => getRecommendationCost30d(right) - getRecommendationCost30d(left))
+    .slice(0, 4);
+
+  const featuredOpportunities = savingsOpportunities.length > 0 ? savingsOpportunities : highCostReviewQueue;
+  const featuredOpportunityTitle = savingsOpportunities.length > 0 ? 'Featured savings opportunities' : 'Featured high-cost resources';
+  const featuredOpportunityDescription = savingsOpportunities.length > 0
+    ? 'These recommendations already include measurable monthly savings in the current result sample.'
+    : 'These recommendations are attached to notable current spend in the current result sample, even when projected savings are not yet calculated.';
+
   return (
     <div className="dashboard">
-      <div className="dashboard__statusRow">
-        <Badge appearance="filled" color={status.data?.status === 'healthy' ? 'success' : 'warning'} size="large">
-          {status.data?.status ?? 'unknown'}
-        </Badge>
-        <Text>v{status.data?.version}</Text>
-        <Text size={200} className="dashboard__mutedText">
-          Last collection: {status.data?.lastCollectionRun ?? 'never'}
-        </Text>
-        <Text size={200} className="dashboard__mutedText">
-          Last recommendations: {status.data?.lastRecommendationRun ?? 'never'}
-        </Text>
-        <div className="dashboard__actions">
+      <PageHeader
+        eyebrow="Overview"
+        title="Dashboard"
+        description="Track optimization performance, spot where the backlog is growing, and kick off new collection or recommendation runs without leaving the page."
+        meta={
+          <>
+            <Badge appearance="filled" color={status.data?.status === 'healthy' ? 'success' : 'warning'} size="large">
+              {status.data?.status ?? 'unknown'}
+            </Badge>
+            <Text size={200} className="dashboard__metaText">Version {status.data?.version}</Text>
+            <Text size={200} className="dashboard__metaText">Collection {formatDateTimeWithRelative(status.data?.lastCollectionRun)}</Text>
+            <Text size={200} className="dashboard__metaText">Recommendations {formatDateTimeWithRelative(status.data?.lastRecommendationRun)}</Text>
+          </>
+        }
+        actions={
+          <>
+            <Button icon={<ArrowSyncRegular />} appearance="secondary" onClick={refreshAll}>
+              Refresh dashboard
+            </Button>
           <Button icon={<ArrowSyncRegular />} appearance="subtle" onClick={handleRunCollection} disabled={isCollectionRunning}>
             {isCollectionRunning ? 'Running collection…' : 'Run collection'}
           </Button>
-          <Button icon={<ArrowSyncRegular />} appearance="subtle" onClick={handleRunRecommendation} disabled={isRecommendationRunning}>
+          <Button icon={<ArrowSyncRegular />} appearance="primary" onClick={handleRunRecommendation} disabled={isRecommendationRunning}>
             {isRecommendationRunning ? 'Running recommendations…' : 'Run recommendations'}
           </Button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {collectionStatusMessage && (
         <Text size={200} className="dashboard__infoText">
@@ -459,13 +482,16 @@ export function DashboardPage() {
         </div>
       )}
 
-      {topOpportunities.length > 0 && (
+      {featuredOpportunities.length > 0 && (
         <div>
           <Text weight="semibold" size={500} className="dashboard__sectionTitle">
-            Top savings opportunities
+            {featuredOpportunityTitle}
+          </Text>
+          <Text size={200} className="dashboard__sectionIntro">
+            {featuredOpportunityDescription}
           </Text>
           <div className="dashboard__opportunityGrid">
-            {topOpportunities.map((recommendation) => {
+            {featuredOpportunities.map((recommendation) => {
               const currentCost = getRecommendationCost30d(recommendation);
               const monthlySavings = getRecommendationMonthlySavings(recommendation);
               const currency = getRecommendationCurrency(recommendation);
@@ -474,7 +500,7 @@ export function DashboardPage() {
                 <Card key={recommendation.RecommendationId}>
                   <CardHeader
                     header={<Text weight="semibold">{getResourceDisplayName(recommendation)}</Text>}
-                    description={<Text size={200}>{recommendation.RecommendationSubType}</Text>}
+                    description={<Text size={200}>{titleCase(recommendation.RecommendationSubType)}</Text>}
                   />
                   <div className="dashboard__opportunityBody">
                     <div className="dashboard__opportunityMetric">
@@ -492,6 +518,9 @@ export function DashboardPage() {
                     </Text>
                     <Text size={200} className="dashboard__mutedText">
                       {getRecommendationGeneratorLabel(recommendation)}
+                    </Text>
+                    <Text size={200} className="dashboard__mutedText">
+                      Generated {formatDateTimeWithRelative(recommendation.GeneratedDate)}
                     </Text>
                   </div>
                 </Card>
