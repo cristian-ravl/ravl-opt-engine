@@ -17,9 +17,11 @@ import {
   Text,
 } from '@fluentui/react-components';
 import { ArrowSyncRegular } from '@fluentui/react-icons';
+import { PageHeader } from '../components/PageHeader';
 import { useAsync } from '../hooks/useAsync';
 import { getDataExplorerTableData, getDataExplorerTables } from '../services/api';
 import type { DataExplorerColumnDefinition, DataExplorerQueryOptions, DataExplorerTableResponse } from '../services/api';
+import { formatDateTime, formatDateTimeWithRelative } from '../utils/format';
 import './DataExplorer.css';
 
 const DEFAULT_PAGE_SIZE = 25;
@@ -46,8 +48,13 @@ function isComplexValue(value: unknown): boolean {
   return typeof value === 'object' && value !== null;
 }
 
-function formatCellValue(value: unknown): string {
+function isDateTimeColumn(column: DataExplorerColumnDefinition): boolean {
+  return column.type.toLowerCase() === 'datetime';
+}
+
+function formatCellValue(value: unknown, column: DataExplorerColumnDefinition): string {
   if (value === null || value === undefined || value === '') return '—';
+  if (isDateTimeColumn(column) && typeof value === 'string') return formatDateTime(value);
   if (typeof value === 'string') return value;
   if (typeof value === 'number' || typeof value === 'boolean') return String(value);
 
@@ -58,8 +65,9 @@ function formatCellValue(value: unknown): string {
   }
 }
 
-function formatDetailValue(value: unknown): string {
+function formatDetailValue(value: unknown, column: DataExplorerColumnDefinition): string {
   if (value === null || value === undefined || value === '') return '—';
+  if (isDateTimeColumn(column) && typeof value === 'string') return formatDateTimeWithRelative(value);
   if (typeof value === 'string') return value;
   if (typeof value === 'number' || typeof value === 'boolean') return String(value);
 
@@ -122,17 +130,23 @@ export function DataExplorerPage() {
     [selectedTableName, JSON.stringify(query)],
   );
 
-  const columns = tableData.data?.columns ?? [];
+  const columns = useMemo(() => tableData.data?.columns ?? [], [tableData.data?.columns]);
 
   useEffect(() => {
     if (!columns.length) {
-      setVisibleColumnNames([]);
+      setVisibleColumnNames((current) => (current.length === 0 ? current : []));
       return;
     }
 
     setVisibleColumnNames((current) => {
       const validColumns = current.filter((columnName) => columns.some((column) => column.name === columnName));
-      return validColumns.length > 0 ? validColumns : getDefaultVisibleColumns(columns);
+      const nextColumns = validColumns.length > 0 ? validColumns : getDefaultVisibleColumns(columns);
+
+      if (nextColumns.length === current.length && nextColumns.every((columnName, index) => columnName === current[index])) {
+        return current;
+      }
+
+      return nextColumns;
     });
   }, [columns]);
 
@@ -174,16 +188,29 @@ export function DataExplorerPage() {
     }));
   };
 
-  const handleVisibleColumnsChange = (selectedOptions: string[]) => {
-    if (selectedOptions.length === 0) {
-      return;
-    }
-
-    setVisibleColumnNames(selectedOptions);
-  };
-
   const resetVisibleColumns = () => {
     setVisibleColumnNames(getDefaultVisibleColumns(columns));
+  };
+
+  const showAllColumns = () => {
+    setVisibleColumnNames(columns.map((column) => column.name));
+  };
+
+  const toggleVisibleColumn = (columnName: string) => {
+    setVisibleColumnNames((current) => {
+      const isVisible = current.includes(columnName);
+
+      if (isVisible) {
+        if (current.length === 1) {
+          return current;
+        }
+
+        return current.filter((name) => name !== columnName);
+      }
+
+      const nextVisibleNames = new Set([...current, columnName]);
+      return columns.filter((column) => nextVisibleNames.has(column.name)).map((column) => column.name);
+    });
   };
 
   const applySearch = () => {
@@ -218,6 +245,21 @@ export function DataExplorerPage() {
 
   return (
     <div className="dataExplorer">
+      <PageHeader
+        eyebrow="Data inspection"
+        title="Data Explorer"
+        description="Inspect the raw ADX records behind the dashboard. Keep the grid lean for scanning, then use the row details pane for the full payload."
+        meta={
+          selectedTableName ? (
+            <>
+              <Badge color="informative">{selectedTableName}</Badge>
+              <Text size={200} className="dataExplorer__helperText">{tableData.data?.total?.toLocaleString() ?? '0'} rows</Text>
+              <Text size={200} className="dataExplorer__helperText">{visibleColumnCount} visible fields</Text>
+            </>
+          ) : undefined
+        }
+      />
+
       <div className="dataExplorer__summaryGrid">
         <Card size="small">
           <CardHeader
@@ -257,6 +299,7 @@ export function DataExplorerPage() {
             </Text>
             <Dropdown
               placeholder="Select a source"
+              value={selectedTableName || 'Select a source'}
               selectedOptions={selectedTableName ? [selectedTableName] : []}
               onOptionSelect={(_, data) => handleTableChange(data.optionValue)}
               className="dataExplorer__control"
@@ -286,6 +329,7 @@ export function DataExplorerPage() {
               Page size
             </Text>
             <Dropdown
+              value={String(currentPageSize)}
               selectedOptions={[String(currentPageSize)]}
               onOptionSelect={(_, data) =>
                 setQuery((current) => ({
@@ -310,6 +354,7 @@ export function DataExplorerPage() {
             </Text>
             <Dropdown
               placeholder="Automatic"
+              value={tableData.data?.sortBy ?? 'Automatic'}
               selectedOptions={tableData.data?.sortBy ? [tableData.data.sortBy] : []}
               onOptionSelect={(_, data) =>
                 setQuery((current) => ({
@@ -336,6 +381,7 @@ export function DataExplorerPage() {
               Sort direction
             </Text>
             <Dropdown
+              value={query.sortDirection === 'asc' ? 'Ascending' : 'Descending'}
               selectedOptions={[query.sortDirection ?? 'desc']}
               onOptionSelect={(_, data) =>
                 setQuery((current) => ({
@@ -355,34 +401,27 @@ export function DataExplorerPage() {
             </Dropdown>
           </label>
 
-          <label className="dataExplorer__field dataExplorer__field--wide">
+          <div className="dataExplorer__field dataExplorer__field--wide">
             <Text size={200} className="dataExplorer__fieldLabel">
               Visible fields
             </Text>
-            <Dropdown
-              multiselect
-              placeholder="Choose which fields stay in the table"
-              selectedOptions={visibleColumnNames}
-              onOptionSelect={(_, data) => handleVisibleColumnsChange(data.selectedOptions ?? [])}
-              className="dataExplorer__control"
-            >
-              {columns.map((column) => (
-                <Option key={column.name} value={column.name} text={column.name}>
-                  {column.name}
-                </Option>
-              ))}
-            </Dropdown>
-          </label>
+            <Text size={200} className="dataExplorer__helperText">
+              {visibleColumnCount} of {columns.length} fields shown. Use the schema pills below to show or hide individual fields.
+            </Text>
+          </div>
 
           <div className="dataExplorer__actions">
             <Button appearance="secondary" onClick={applySearch}>
-              Apply search
+              Search table
             </Button>
             <Button appearance="subtle" onClick={clearSearch}>
               Clear search
             </Button>
             <Button appearance="subtle" onClick={resetVisibleColumns} disabled={!columns.length}>
               Reset fields
+            </Button>
+            <Button appearance="subtle" onClick={showAllColumns} disabled={!columns.length || visibleColumnCount === columns.length}>
+              Show all fields
             </Button>
             <Button icon={<ArrowSyncRegular />} appearance="secondary" onClick={() => tableData.refresh()} disabled={!selectedTableName}>
               Refresh
@@ -405,13 +444,25 @@ export function DataExplorerPage() {
         <Card>
           <CardHeader
             header={<Text weight="semibold">Schema</Text>}
-            description={<Text size={200}>Visible fields stay highlighted in the table; the row inspector always shows the full record.</Text>}
+            description={<Text size={200}>Click field pills to show or hide columns in the grid. The row inspector always shows the full record.</Text>}
           />
+          <div className="dataExplorer__schemaToolbar">
+            <Text size={200} className="dataExplorer__helperText">
+              Keep the grid lean for scanning. At least one field stays visible at all times.
+            </Text>
+          </div>
           <div className="dataExplorer__schemaList">
             {columns.map((column) => (
-              <Badge key={column.name} appearance={visibleColumnNames.includes(column.name) ? 'filled' : 'tint'}>
+              <Button
+                key={column.name}
+                size="small"
+                appearance={visibleColumnNames.includes(column.name) ? 'primary' : 'secondary'}
+                className="dataExplorer__schemaToggle"
+                aria-pressed={visibleColumnNames.includes(column.name)}
+                onClick={() => toggleVisibleColumn(column.name)}
+              >
                 {column.name}: {column.type}
-              </Badge>
+              </Button>
             ))}
           </div>
         </Card>
@@ -461,7 +512,7 @@ export function DataExplorerPage() {
                         <TableCell className="dataExplorer__indexCell">{rowNumber}</TableCell>
                         {visibleColumns.map((column) => {
                           const value = row[column.name];
-                          const textValue = formatCellValue(value);
+                          const textValue = formatCellValue(value, column);
 
                           return (
                             <TableCell key={column.name}>
@@ -535,7 +586,7 @@ export function DataExplorerPage() {
               <div className="dataExplorer__detailsGrid">
                 {columns.map((column) => {
                   const value = selectedRow[column.name];
-                  const detailValue = formatDetailValue(value);
+                  const detailValue = formatDetailValue(value, column);
                   const detailClassName = isComplexValue(value)
                     ? 'dataExplorer__detailValue dataExplorer__detailValue--mono'
                     : 'dataExplorer__detailValue';

@@ -6,22 +6,12 @@
   min-width: 0;
 }
 
-.dashboard__statusRow {
-  display: flex;
-  gap: 16px;
-  align-items: center;
-  flex-wrap: wrap;
-  padding: 4px 0;
-}
-
-.dashboard__actions {
-  margin-left: auto;
-  display: flex;
-  gap: 8px;
-}
-
 .dashboard__mutedText {
   color: #616161;
+}
+
+.dashboard__metaText {
+  color: #4a5565;
 }
 
 .dashboard__infoText {
@@ -41,6 +31,12 @@
 }
 
 .dashboard__sectionTitle {
+  margin-bottom: 12px;
+  display: block;
+}
+
+.dashboard__sectionIntro {
+  color: #4a5565;
   margin-bottom: 12px;
   display: block;
 }
@@ -98,12 +94,6 @@
 }
 
 @media (max-width: 720px) {
-  .dashboard__actions {
-    margin-left: 0;
-    width: 100%;
-    flex-wrap: wrap;
-  }
-
   .dashboard__opportunityGrid,
   .dashboard__categoryGrid,
   .dashboard__topGrid,

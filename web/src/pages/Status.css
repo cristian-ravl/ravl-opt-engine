@@ -1,0 +1,75 @@
+.statusPage {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.statusPage__summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.statusPage__metaText,
+.statusPage__mutedText {
+  color: #4a5565;
+}
+
+.statusPage__errorText {
+  color: #d13438;
+}
+
+.statusPage__cardHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.statusPage__cardBody {
+  padding: 0 16px 16px;
+}
+
+.statusPage__sectionTitle {
+  display: block;
+  margin-bottom: 12px;
+}
+
+.statusPage__providerGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.statusPage__listTitle {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.statusPage__list {
+  margin: 0 0 8px;
+  padding-left: 20px;
+  font-size: 13px;
+}
+
+.statusPage__list--tight {
+  margin-bottom: 0;
+}
+
+.statusPage__tableWrap {
+  overflow-x: auto;
+  padding: 0 16px 16px;
+}
+
+.statusPage__stackedCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+@media (max-width: 720px) {
+  .statusPage__providerGrid,
+  .statusPage__summaryGrid {
+    grid-template-columns: 1fr;
+  }
+}

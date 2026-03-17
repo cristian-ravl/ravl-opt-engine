@@ -21,7 +21,7 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background: #f7f9fc;
+  background: linear-gradient(180deg, #f8fbff 0%, #f5f7fb 220px, #f7f9fc 100%);
   color: #1f1f1f;
 }
 
@@ -33,10 +33,11 @@ body {
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid #e5eaf2;
+  box-shadow: 0 6px 24px rgba(15, 23, 42, 0.04);
 }
 
 .appShell__headerInner {
-  max-width: 1440px;
+  max-width: 1520px;
   margin: 0 auto;
   padding: 16px 24px;
   display: flex;
@@ -46,18 +47,45 @@ body {
   flex-wrap: wrap;
 }
 
+.appShell__brand {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1 1 420px;
+}
+
+.appShell__brandText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.appShell__eyebrow {
+  color: #0f6cbd;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 .appShell__title {
   margin: 0;
   font-size: clamp(1.5rem, 2.6vw, 2.25rem);
   font-weight: 700;
   line-height: 1.05;
   letter-spacing: -0.03em;
-  flex: 0 1 320px;
+}
+
+.appShell__subtitle {
+  margin: 0;
+  color: #4a5565;
+  max-width: 72ch;
 }
 
 .appShell__tabs {
   display: flex;
-  flex: 1 1 720px;
+  flex: 1 1 680px;
   justify-content: flex-end;
   flex-wrap: wrap;
   row-gap: 8px;
@@ -72,7 +100,7 @@ body {
 }
 
 .appShell__content {
-  max-width: 1440px;
+  max-width: 1520px;
   margin: 0 auto;
   min-width: 0;
 }
